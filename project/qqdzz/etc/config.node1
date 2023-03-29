@@ -1,0 +1,15 @@
+thread = 8 
+cpath = "./skynet/cservice/?.so" -- c service 
+bootstrap = "snlua bootstrap"
+
+start = "main" -- main 
+harbor = 0 -- cluster 
+
+lualoader = "./skynet/lualib/loader.lua" -- loader 
+
+luaservice = "./service/?.lua;" .. "./service/?/init.lua;" .. "./skynet/service/?.lua;" -- lua service 
+
+lua_path = "./etc/?.lua;" .. "./lualib/?.lua;" .. "./skynet/lualib/?.lua;" .. "./skynet/lualib/?/init.lua;" -- lua script 
+
+lua_cpath = "./luaclib/?.so;" .. "./skynet/luaclib/?.so" -- c .so 
+node = "node1"
