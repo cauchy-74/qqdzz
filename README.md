@@ -14,93 +14,93 @@ lua模块
 
 1. **service.lua**
 > 服务的模板文件
-> 实现了基础的服务功能：  
-> (1). 服务类表：M = { name, id, exit, init, resp }    
-> (2). M.start(name, id, ...)：newservice创建服务，会进入该封装的start方法中，设置基础属性，调用skynet.start(init)  。  
-> (3). init()：全局的初始化方法，在新建的服务中可自定义M.init()初始化方法。并且在此函数中设定了消息分发方法dispatch。    
-> (4). dispatch(session, address, cmd, ...)：模块的消息分发处理机制，调用M.resp\[cmd\]方法，并返回调用方法后的返回值给发送方。  
-> (5). M.call(node, srv, ...)；M.send(node, srv, ...)：重写call和node方法，便于在不同节点间的通信调用。  
+> 实现了基础的服务功能：    
+> (1). 服务类表：M = { name, id, exit, init, resp }      
+> (2). M.start(name, id, ...)：newservice创建服务，会进入该封装的start方法中，设置基础属性，调用skynet.start(init)  。    
+> (3). init()：全局的初始化方法，在新建的服务中可自定义M.init()初始化方法。并且在此函数中设定了消息分发方法dispatch。      
+> (4). dispatch(session, address, cmd, ...)：模块的消息分发处理机制，调用M.resp\[cmd\]方法，并返回调用方法后的返回值给发送方。    
+> (5). M.call(node, srv, ...)；M.send(node, srv, ...)：重写call和node方法，便于在不同节点间的通信调用。    
 
 
 ## service
 
 服务模块
 
-1. **main.lua**
-> 项目启动文件，用于服务的启动，调度。
+1. **main.lua**  
+> 项目启动文件，用于服务的启动，调度。  
 
 ### agent
 
-> 代理服务
+> 代理服务  
 
-1. **init.lua** 
+1. **init.lua**   
 
-> 实现基础的用户执行命令方法cmd，和回调方法。  
-> s.client.work; （ 执行用户 \[work\] 命令）
-> s.resp.client; s.resp.kick; s.resp.exit; s.resp.send;  （ client用于分派用户命令执行，kick下线,exit退出,send与gateway通信。）
+> 实现基础的用户执行命令方法cmd，和回调方法。    
+> s.client.work; （ 执行用户 \[work\] 命令）   
+> s.resp.client; s.resp.kick; s.resp.exit; s.resp.send;  （ client用于分派用户命令执行，kick下线,exit退出,send与gateway通信。）   
 
-2. **scene.lua**
+2. **scene.lua**   
 
-> 场景功能模块，在init.lua中导入：require "scene"  
-> 添加了用户的命令功能，s.client.enter;  s.client.shift; （进入场景；移动）
-> 实现了random_scene()局域方法，随机选取场景节点。
-> 实现了leave_scene()模块方法，用于退出场景，需要发送leave请求给scene节点完成退出。
+> 场景功能模块，在init.lua中导入：require "scene"     
+> 添加了用户的命令功能，s.client.enter;  s.client.shift; （进入场景；移动）   
+> 实现了random_scene()局域方法，随机选取场景节点。   
+> 实现了leave_scene()模块方法，用于退出场景，需要发送leave请求给scene节点完成退出。   
 
 
 
 
 ### agentmgr
 
-> 全局管理代理服务
+> 全局管理代理服务   
 
-1. **init.lua**
-> 目前实现reqkick和reqlogin两个回调方法。  
-> login成功返回agent代理，即动态开启agent代理服务。
+1. **init.lua**   
+> 目前实现reqkick和reqlogin两个回调方法。     
+> login成功返回agent代理，即动态开启agent代理服务。   
 
 ### gateway
 
-> 网关服务
+> 网关服务  
 
-1. **init.lua**
+1. **init.lua**  
 
-> 实现client端连接与代理服务agent的双向认证。
+> 实现client端连接与代理服务agent的双向认证。  
 
 ### login 
-> 登录服务
+> 登录服务  
 
-1. **login.lua**
-> 完成登录操作，向agentmgr发起登录请求，拿到agent代理后，通过sure_agent回调给网关完成fd与agent的绑定。
+1. **login.lua**  
+> 完成登录操作，向agentmgr发起登录请求，拿到agent代理后，通过sure_agent回调给网关完成fd与agent的绑定。  
 
 
 
 ### scene 
 
-> 场景服务
+> 场景服务  
 
-1. **init.lua**
+1. **init.lua**  
 
-> 维护场景元素：小球ball和食物food    
-> 实现广播（broadcast）方法：用于给所有玩家发送消息。回调玩家agent的send方法。    
-> 实现回调方法：（enter; shift; leave; ）  
-> 实现保持帧率执行，每0.2s调度（move_update; food_update; eat_update; ）  
+> 维护场景元素：小球ball和食物food      
+> 实现广播（broadcast）方法：用于给所有玩家发送消息。回调玩家agent的send方法。      
+> 实现回调方法：（enter; shift; leave; ）    
+> 实现保持帧率执行，每0.2s调度（move_update; food_update; eat_update; ）    
 
 
 ### nodemgr
 
-> 节点管理服务
+> 节点管理服务  
 
-1. **init.lua**
+1. **init.lua**  
 
-> 新启agent服务，并返回该服务。
+> 新启agent服务，并返回该服务。  
 
 
 
 
 ------
 
-# 版本的不足
+# 版本的不足  
 
-## version:0.1:
+## version:0.1:  
 
 > 1. 登录协议返回之前（agentmgr：s.call(node, "nodemgr", "newservice", "agent", "agent", playerid)还未返回），客户端已经下线，但此时agentmgr记录是“LOGIN”状态，这样下线请求不会被执行，除非再次登入踢下线，否则agent一直存在。  
     **解决：** gateway 与 agent 之间偶尔发送心跳协议，若检测客户端连接已断开，则请求下线。 
