@@ -49,5 +49,7 @@ skynet.start(function()
         skynet.name("scene" .. sid, srv)
     end
 
+    skynet.newservice("admin", "admin", 0)
+
     skynet.exit()
 end)

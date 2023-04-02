@@ -181,6 +181,7 @@ function update(frame)
 end 
 
 s.init = function()
+    INFO("[scene" .. s.id .. "]：已创建！")
     skynet.fork(function()
         -- 保存帧率执行 -- 追帧
         -- 等待时间waittime=0.2-执行时间 [3.13.6书上]
@@ -190,7 +191,7 @@ s.init = function()
             frame = frame + 1
             local isok, err = pcall(update, frame)
             if not isok then 
-                skynet.error(err)
+                ERROR(err)
             end
             local etime = skynet.now() 
             local waittime = frame * 20 - (etime - stime)

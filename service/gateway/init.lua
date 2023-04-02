@@ -28,6 +28,9 @@ function gateplayer()
         playerid = nil, 
         agent = nil, 
         conn = nil,
+        key = math.random(1, 99999999), -- 掉线重连的标识码
+        lost_conn_time = nil, -- 记录最后一次断开连接的时间
+        msgcache = {}, -- 未发送的消息缓存
     }
     return m
 end 
@@ -72,18 +75,69 @@ local disconnect = function(fd)
         return 
     else 
         -- 在游戏中
-        players[playerid] = nil 
-        local reason = "断线"
-        skynet.call("agentmgr", "lua", "reqkick", playerid, reason)
+        -- 与登出流程不同，客户端掉线，gateway不触发掉线请求（向agentmgr -> reqkick）
+        -- 掉线仅仅取消玩家 gplayer 和旧连接 conn 的关联
+        local gplayer = players[playerid] 
+        gplayer.conn = nil 
+
+        -- 防止客户端不再发起重连导致的资源占用，开启定时器
+        -- 300 * 100 -> 5分钟强制下线
+        skynet.timeout(300 * 100, function()
+            if gplayer.conn ~= nil then 
+                return 
+            end 
+            local reason = "断线超时"
+            skynet.call("agentmgr", "lua", "reqkick", playerid, reason)
+        end)
+
     end 
+end
+
+local process_reconnect = function(fd, msg)
+    local playerid = tonumber(msg[2]) 
+    local key = tonumber(msg[3])
+
+    local conn = conns[fd]
+    if not conn then 
+        ERROR("[gateway" .. s.id .. "]：重连失败，连接池conn不存在fd = %s连接", fd)
+        return 
+    end 
+    local gplayer = players[playerid]
+    if not gplayer then 
+        ERROR("[gateway" .. s.id .. "]：重连失败，用户列表players不存在playerid = %s用户", playerid)
+        return 
+    end 
+    if gplayer.conn then 
+        ERROR("[gateway" .. s.id .. "]：重连失败，用户连接conn未断开")
+        return 
+    end
+    if gplayer.key ~= key then 
+        ERROR("[gateway" .. s.id .. "]：重连失败，用户令牌不匹配")
+    end 
+    -- 绑定
+    gplayer.conn = conn 
+    conn.playerid = playerid 
+    -- 回应
+    s.resp.send_by_fd(nil, fd, { "reconnect", 0 })
+    -- 发送缓存消息
+    for i, cmsg in ipairs(gplayer.msgcache) do 
+        s.resp.send_by_fd(nil, fd, cmsg)
+    end
+    gplayer.msgcache = {}
 end
 
 local process_msg = function(fd, msgstr) 
     local cmd, msg = str_unpack(msgstr)
-    skynet.error("recv " .. fd .. " [" .. cmd .. "] {" .. table.concat(msg, ",") .. "}" )
+    INFO("[gateway" .. s.id .. "]：收到来自fd = " .. fd .. "的消息" ..  "【" .. table.concat(msg, ",") .. "】" .. "，执行的指令是" .. "[ " .. cmd .. " ]")
 
     local conn = conns[fd]
     local playerid = conn.playerid 
+
+    -- 处理重连消息 客户端client自己发reconnect
+    if cmd == "reconnect" then 
+        process_reconnect(fd, msg)
+        return 
+    end
 
     if not playerid then 
         -- 如果未登录
@@ -96,19 +150,19 @@ local process_msg = function(fd, msgstr)
         -- 随机选择login服务
         local login = "login" .. loginid 
 
-        skynet.error("[ gateway ]: not login ", " choose ", login)
+        INFO("[gateway" .. s.id .. "]：" .. "该连接fd = " .. fd .. "尚未登录账号")
+        INFO("[gateway" .. s.id .. "]：" .. "随机选择节点" .. login .. "登录")
 
         skynet.send(login, "lua", "client", fd, cmd, msg)
 
     else 
         -- 如已登录，消息转发给对应的agent
 
-        skynet.error(" [ gateway ]: aleady login ")
 
         local gplayer = players[playerid]
         local agent = gplayer.agent 
         
-        skynet.error("agent = ", agent, " playerid = ", playerid)
+        INFO("[gateway" .. s.id .. "]：" .. "该用户id = " .. playerid .. "已经登录，现命令cmd = [ " .. cmd .. " ]" .. "发送给代理节点agent = " .. agent .. "处理")
 
         skynet.send(agent, "lua", "client", cmd, msg)
     end 
@@ -130,7 +184,7 @@ end
 -- 协议格式 : cmd, arg1, arg2, ...#
 local recv_loop = function(fd)
     socket.start(fd)
-    skynet.error("socket connected " .. fd)
+    INFO("[gateway" .. s.id .. "]：socket连接成功fd = " .. fd .. "，监听用户ing~")
     local readbuff = "" 
     while true do 
         local recvstr = socket.read(fd)
@@ -139,7 +193,7 @@ local recv_loop = function(fd)
             readbuff = process_buff(fd, readbuff)
             -- process_buff : 处理数据,返回剩余未处理数据
         else 
-            skynet.error("socket close " .. fd)
+            INFO("[gateway" .. s.id .. "]：socket关闭fd = " .. fd)
             disconnect(fd)
             socket.close(fd)
             return 
@@ -148,7 +202,11 @@ local recv_loop = function(fd)
 end 
 
 local connect = function(fd, addr)
-    print("connect from " .. addr .. " " .. fd)
+    if closing then -- admin通知要关停
+        return 
+    end
+    
+    INFO("[gateway" .. s.id .. "]：监听到来自addr = " .. addr .. "的连接,连接fd = " .. fd)
     local c = conn() 
     conns[fd] = c 
     c.fd = fd 
@@ -165,7 +223,7 @@ function s.init()
     local port = nodecfg.gateway[tonumber(s.id)].port
 
     local listenfd = socket.listen("0.0.0.0", port)
-    skynet.error("Listen socket: ", "0.0.0.0", port)
+    INFO("[gateway" .. s.id .."]：监听socket启动，ip=0.0.0.0, port="..port)
     socket.start(listenfd, connect)
 end 
 
@@ -176,9 +234,7 @@ s.resp.send_by_fd = function(source, fd, msg)
     end 
 
     local buff = str_pack(msg[1], msg)
-
-    skynet.error("send " .. fd .. " [" .. msg[1] .. "] { " .. table.concat(msg, ",") .. " }") 
-
+    INFO("[gateway" .. s.id .. "]：发送消息【" .. table.concat(msg, ",") .. "】给fd = " .. fd .. "的客户端")
     socket.write(fd, buff) 
 end 
 
@@ -190,7 +246,12 @@ s.resp.send = function(source, playerid, msg)
         return 
     end 
     local c = gplayer.conn 
-    if c == nil then 
+    if c == nil then -- 掉线了维护玩家的消息缓存
+        table.insert(gplayer.msgcache, msg)
+        local len = #gplayer.msgcache 
+        if len > 500 then -- 超过500条，强制下线
+            skynet.call("agentmgr", "lua", "reqkick", playerid, "gate消息缓存过多")
+        end 
         return 
     end 
     s.resp.send_by_fd(nil, c.fd, msg)
@@ -202,12 +263,14 @@ end
 --      fd:     客户端连接标识
 --      playerid:已登录玩家id 
 --      agent:  角色代理服务id
+--
+--      return: bool, 增加一个返回绑定玩家的令牌
 -- ]]
 s.resp.sure_agent = function(source, fd, playerid, agent)
     local conn = conns[fd]
     if not conn then -- 登录过程中下线了
         skynet.call("agentmgr", "lua", "reqkick", playerid, "未完成登录即下线")
-        return false
+        return false, -1 
     end 
 
     conn.playerid = playerid 
@@ -218,7 +281,7 @@ s.resp.sure_agent = function(source, fd, playerid, agent)
     gplayer.conn = conn 
     players[playerid] = gplayer 
 
-    return true
+    return true, gplayer.key
 end 
 
 s.resp.kick = function(source, playerid) 
@@ -236,5 +299,11 @@ s.resp.kick = function(source, playerid)
     disconnect(c.fd)
     socket.close(c.fd)
 end 
+
+local closing = false
+
+s.resp.shutdown = function()
+    closing = true
+end
 
 s.start(...)

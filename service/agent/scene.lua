@@ -53,20 +53,21 @@ s.client.enter = function(msg)
     end 
     s.snode = snode 
     s.sname = sname 
+    INFO("[agent/scene]：成功进入场景[" .. s.sname .. "]")
     return nil 
 end
 
 s.client.shift = function(msg)
-    if not s.name then 
+    if not s.sname then 
         return 
     end 
     local x = msg[2] or 0 
     local y = msg[3] or 0 
-    s.call(s.snode, s.name, "shift", s.id, x, y)
+    s.call(s.snode, s.sname, "shift", s.id, x, y)
 end
 
 s.leave_scene = function() 
-    if not s.name then 
+    if not s.sname then 
         return 
     end 
     s.call(s.snode, s.sname, "leave", s.id) -- s.id这里不清楚是哪个模块的id，按实际应该是playerid

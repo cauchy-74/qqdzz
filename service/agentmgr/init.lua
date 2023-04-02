@@ -56,12 +56,12 @@ s.resp.reqlogin = function(source, playerid, node, gate)
     local mplayer = players[playerid]
     -- 登录过程禁止顶替
     if mplayer and mplayer.status == STATUS.LOGOUT then 
-        skynet.error("reqlogin fail, at status LOGOUT " .. playerid)
+        ERROR("[agentmgr]：方法[resp.reqlogin]调用，用户id = " .. playerid .. "状态status = LOGOUT")
         return false 
     end 
 
     if mplayer and mplayer.status == STATUS.LOGIN then 
-        skynet.error("reqlogin fail, at status LOGIN " .. playerid)
+        ERROR("[agentmgr]：方法[resp.reqlogin]调用，用户id = " .. playerid .. "状态status = LOGIN")
         return false 
     end 
 
@@ -92,5 +92,37 @@ s.resp.reqlogin = function(source, playerid, node, gate)
 
     return true, agent
 end 
+
+-- 获取在线人数
+function get_online_count() 
+    local count = 0
+    for playerid, player in pairs(players) do 
+        count = count + 1
+    end
+    return count
+end
+
+-- 将num数量玩家踢下线
+s.resp.shutdown = function(source, num)
+    -- 当前玩家数
+    local count = get_online_count()    
+    local n = 0
+    for playerid, player in pairs(players) do 
+        skynet.fork(s.resp.reqkick, nil, playerid, "close server")
+        n = n + 1
+        if n >= num then 
+            break
+        end
+    end
+    -- 等待玩家下线
+    while true do 
+        skynet.sleep(200)
+        local new_count = get_online_count() 
+        ERROR("[agentmgr]：方法[resp.shutdown]调用，当前在线玩家online = " .. new_count) 
+        if new_count <= 0 or new_count <= count - num then 
+            return new_count
+        end
+    end
+end
 
 s.start(...)

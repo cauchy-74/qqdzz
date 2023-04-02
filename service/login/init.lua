@@ -25,23 +25,25 @@ s.client.login = function(fd, msg, source)
 
     node = skynet.getenv("node") 
     if pw ~= 123 then 
-        return { "login", 1, "密码错误" }
+        return { "login", 1, -1, "密码错误" }
     else 
         -- 向agentmgr发起请求
         local isok, pagent = skynet.call("agentmgr", "lua", "reqlogin", playerid, node, gate) 
         agent = pagent
 
         if not isok then 
-            return { "login", 1, "请求mgr失败" }
+            return { "login", 1, -1, "请求mgr失败" }
         end 
     end 
     -- 回应gate
-    local isok = skynet.call(gate, "lua", "sure_agent", fd, playerid, agent) 
+    local isok, key = skynet.call(gate, "lua", "sure_agent", fd, playerid, agent) 
+    
     if not isok then 
-        return { "login", 1, "gate注册失败" }
+        return { "login", 1, key, "gate注册失败" }
     end 
-    skynet.error("[ login ]: login succ " .. playerid)
-    return { "login", 0, "登录成功" }
+
+    INFO("[login" .. s.id .. "]: 登录成功 => 用户id：" .. playerid)
+    return { "login", 0, key, "登录成功" }
 end 
 
 --[[
@@ -54,7 +56,7 @@ s.resp.client = function(source, fd, cmd, msg)
         local ret_msg = s.client[cmd](fd, msg, source)
         skynet.send(source, "lua", "send_by_fd", fd, ret_msg)
     else 
-        skynet.error("s.resp.client fail", cmd)
+        INFO("[login" .. s.id .. "]: resp.client中找不到%s的方法", cmd)
     end 
 end 
 

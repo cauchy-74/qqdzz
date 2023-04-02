@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package playerdata;
+
+message BaseInfo {
+    int32 playerid = 1; 
+    int32 coin = 2;
+    string name = 3;
+    int32 level = 4;
+    int32 last_login_time = 5;
+    int32 skin = 6;
+}

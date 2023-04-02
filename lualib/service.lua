@@ -3,6 +3,17 @@
 local skynet = require "skynet"
 local cluster = require "skynet.cluster"
 
+local function skylog(str, color)
+    return function(...)
+        skynet.error(string.format("%s%s%s\x1b[0m", color, str, ...))
+    end
+end
+
+DEBUG = skylog("【DEBUG】", "\x1b[34m") -- blue
+INFO = skylog("【INFO】", "\x1b[37m") -- white
+WARNING = skylog("【WARNING】", "\x1b[32m") -- green
+ERROR = skylog("【ERROR】", "\x1b[31m") --red 
+
 local M = {
     name = "", -- 服务类型
     id = 0, -- 服务编号
@@ -23,7 +34,7 @@ local dispatch = function(session, address, cmd, ...)
     local isok = ret[1] -- 第二个参数开始三fun返回值
      
     if not isok then 
-        Skynet.ret()
+        skynet.ret()
         return 
     end 
      
@@ -73,7 +84,7 @@ return M
 --      执行流程:
 --          1. s = require "service"; s.start() [服务脚本]
 --          2. start() [封装层 here]
---          3. skynet.start() [Skynet]
+--          3. skynet.start() [skynet]
 --          4. init() [封装层]
 --          5. s.init() [服务脚本]
 --]]
