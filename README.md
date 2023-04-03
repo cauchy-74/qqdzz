@@ -9,6 +9,15 @@
 2. **runconfig.lua**
 > 全局的运行配置，项目的拓扑结构
 
+## luaclib
+C模块文件夹 
+1. **cjson.so**
+> cjson 
+> 轻量级json解析器和生成器，快速解析生成json格式的数据，使用简单，代码量小，方便集成。
+2. **pb.so**
+> protobuf 
+> Google开发的数据序列化和反序列化工具，高效将结构化数据进行编码和解码。protobuf生成的二进制数据体积小，解析快，能够在网络传输和存储场景中提高效率。支持多种编成语言，方便实现跨语言的数据交换。使用IDL（Interface Description Language）描述数据结构，方便扩展和修改数据结构。
+
 ## lualib
 lua模块
 
@@ -21,6 +30,11 @@ lua模块
 > (4). dispatch(session, address, cmd, ...)：模块的消息分发处理机制，调用M.resp\[cmd\]方法，并返回调用方法后的返回值给发送方。    
 > (5). M.call(node, srv, ...)；M.send(node, srv, ...)：重写call和node方法，便于在不同节点间的通信调用。    
 
+## proto 
+> 用于存放通信协议的描述文件
+
+## storage
+> 用于“存储数据”的描述文件
 
 ## service
 
@@ -93,8 +107,13 @@ lua模块
 
 > 新启agent服务，并返回该服务。  
 
+### admin 
 
+> 管理员服务
 
+1. **init.lua** 
+
+> 监听127.0.0.1:8888端口，直接telnet 127.0.0.1 8888 连接服务器后，下放命令“stop”等。
 
 ------
 
