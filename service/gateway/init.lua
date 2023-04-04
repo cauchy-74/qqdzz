@@ -42,11 +42,11 @@ end
 -- ]]
 
 -- decode
--- "login,101,123" -> cmd=login, msg={"login","101","123"}
+-- "login,101,123" -> cmd=login, msg={"login" "101" "123"}
 local str_unpack = function(msgstr) 
     local msg = {} 
     while true do 
-        local arg, rest = string.match(msgstr, "(.-),(.*)")
+        local arg, rest = string.match(msgstr, "(.-) (.*)")
         if arg then 
             msgstr = rest 
             table.insert(msg, arg)
@@ -86,10 +86,10 @@ local disconnect = function(fd)
             if gplayer.conn ~= nil then 
                 return 
             end 
+            -- local msgBS = reqt:encode({}) -- 应该写一个面向响应的消息
             local reason = "断线超时"
             skynet.call("agentmgr", "lua", "reqkick", playerid, reason)
         end)
-
     end 
 end
 
@@ -132,6 +132,7 @@ local process_msg = function(fd, msgstr)
 
     local conn = conns[fd]
     local playerid = conn.playerid 
+    -- [[ 想到一个问题：id维护的是当前网关下的conn中的id，如果从别的网关登录，别的节点登录呢？ ]]
 
     -- 处理重连消息 客户端client自己发reconnect
     if cmd == "reconnect" then 
@@ -139,32 +140,35 @@ local process_msg = function(fd, msgstr)
         return 
     end
 
-    if not playerid then 
+    if not playerid then -- "login", "register"
         -- 如果未登录
         -- 随机选择一个同节点的login服务转发消息
         
-
         local node = skynet.getenv("node")
         local nodecfg = runconfig[node]
         local loginid = math.random(1, #nodecfg.login)
         -- 随机选择login服务
         local login = "login" .. loginid 
+        if msg[4] == nil then -- 可以允许用户自己指定id，之后肯定需要调整，维护一个递增的id
+            table.insert(msg, math.random(1, 999999)) -- msg.useid
+        end
+
+        local msgBS = request:encode(msg)
 
         INFO("[gateway" .. s.id .. "]：" .. "该连接fd = " .. fd .. "尚未登录账号")
         INFO("[gateway" .. s.id .. "]：" .. "随机选择节点" .. login .. "登录")
 
-        skynet.send(login, "lua", "client", fd, cmd, msg)
-
+        skynet.send(login, "lua", "client", fd, cmd, msgBS)
     else 
         -- 如已登录，消息转发给对应的agent
-
-
+        
         local gplayer = players[playerid]
         local agent = gplayer.agent 
+        local msgBS = request:encode(msg)
         
         INFO("[gateway" .. s.id .. "]：" .. "该用户id = " .. playerid .. "已经登录，现命令cmd = [ " .. cmd .. " ]" .. "发送给代理节点agent = " .. agent .. "处理")
 
-        skynet.send(agent, "lua", "client", cmd, msg)
+        skynet.send(agent, "lua", "client", cmd, msgBS)
     end 
 end 
 
@@ -303,7 +307,7 @@ end
 local closing = false
 
 s.resp.shutdown = function()
-    closing = true
+        closing = true
 end
 
 s.start(...)

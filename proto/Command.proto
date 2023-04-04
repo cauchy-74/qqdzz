@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package CMD;
+
+message Request {
+    enum CommandType {
+        LOGIN = 0;
+        REGISTER = 1;
+        ENTER_SCENE = 2; 
+        LEAVE_SCENE = 3;
+        CREATE_SCENE = 4; 
+        END_GAME = 5; 
+        CHAT_MESSAGE = 6; 
+        INVITE_TO_GAME = 7;
+        BLOCK_USER = 8;
+        UNBLOCK_USER = 9;
+        ADD_FRIEND = 10;
+        DEL_FRIEND = 11;
+
+        ERROR = 504;
+    }
+    CommandType type = 1;
+    bytes data = 2;
+}
+
+message ErrorRequest {
+    string message = 1;  
+}
+
+// 1. 登录指令 
+message LoginRequest {
+    string username = 1; 
+    string password = 2;
+    int32 userid = 3;
+}
+
+message LoginResponse {
+    string token = 1;
+}
+
+// 2. 注册指令
+message RegisterRequest {
+    string username = 1;
+    string password = 2;
+    int32 userid = 3;
+}
+
+message RegisterResponse {
+    string message = 1; 
+}
+
+// 3. 进入场景
+message EnterSceneRequest {
+    string sceneid = 1;
+}
+
+message EnterSceneResponse {
+    string message = 1;
+}
+
+// 4. 离开场景
+message LeaveSceneRequest {
+    string sceneid = 1;
+}
+
+message LeaveSceneResponse {
+    string message = 1;
+}
+
+// 5. 创建场景
+message CreateSceneRequest {
+    string sceneid = 1;
+    int32 max_player_count = 2;
+}
+
+message CreateSceneResponse {
+    string message = 1;
+}
+
+// 6. 结束游戏
+message EndGameRequest {
+    string sceneid = 1; // game_id
+}
+
+message EndGameResponse {
+    string message = 1;
+}
+
+// 7. 聊天消息
+message ChatMessageRequest {
+    string sceneid = 1;
+    string message = 2;
+}
+
+message ChatMessageResponse {
+    string message = 1;
+}
+
+// 8. 邀请好友
+message InviteToGameRequest {
+    string friend_username = 1;
+    int32 friend_userid = 2; 
+    string sceneid = 3; // game_id
+}
+
+message InviteToGameResponse {
+    string message = 1;
+}
+
+// 9. 封禁用户
+message BlockUserRequest {
+    string username = 1;
+    int32 userid = 2;
+}
+
+message BlockUserResponse {
+    string message = 1;
+}
+
+// 10. 解封用户
+message UnblockUserRequest {
+    string username = 1; 
+    int32 userid = 2;
+} 
+
+message UnblockUserResponse {
+    string message = 1; 
+}
+
+// 11. 添加好友
+message AddFriendRequest {
+    string friend_username = 1;
+    int32 friend_userid = 2;
+}
+
+message AddFriendResponse {
+    string message = 1;
+}
+
+// 12. 删除好友
+message DelFriendRequest {
+    string friend_username = 1;
+    int32 friend_userid = 2;
+}
+
+message DelFriendResponse {
+    string message = 1;
+}

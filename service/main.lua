@@ -20,6 +20,9 @@ skynet.start(function()
     cluster.reload(runconfig.cluster) 
     cluster.open(mynode) 
 
+    local mysql = skynet.newservice("mysql", "mysql", 0)
+    skynet.name("mysql", mysql)
+
     -- gate 
     for i, v in pairs(nodecfg.gateway) do 
         local srv = skynet.newservice("gateway", "gateway", i) 

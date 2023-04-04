@@ -2,6 +2,13 @@
 
 local skynet = require "skynet"
 local cluster = require "skynet.cluster"
+request = require "request" -- lua模块自定义的使用Command.proto
+
+mysql = require "skynet.db.mysql"
+-- 添加协议模块的导入
+pb = require "pb"
+pb.loadfile("./proto/Command.pb")
+pb.loadfile("./storage/storage.pb")
 
 local function skylog(str, color)
     return function(...)
@@ -20,6 +27,7 @@ local M = {
     exit = nil,  -- 回调方法
     init = nil,  -- 回调方法
     resp = {}, -- 存放消息处理方法
+    request = request, -- 协议表
 }
 
 local dispatch = function(session, address, cmd, ...)

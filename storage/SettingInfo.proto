@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message SettingInfo {
+    string user_id = 1;  // 用户ID
+    bool is_sound_on = 2;  // 是否开启声音
+    bool is_music_on = 3;  // 是否开启音乐
+    bool is_vibration_on = 4;  // 是否开启震动
+    bool is_notification_on = 5;  // 是否开启通知
+}

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+import "UserInfo.proto";
+import "BallInfo.proto";
+
+message GameRoomState {
+    string room_id = 1;  // 房间ID
+    int32 round_time = 2;  // 当前回合时间
+    int32 round_left_time = 3;  // 当前回合剩余时间
+    repeated BallInfo ball_list = 4;  // 球列表
+    repeated UserInfo player_list = 5;  // 玩家列表
+    int32 game_status = 6;  // 游戏状态（0：未开始，1：进行中，2：已结束）
+}

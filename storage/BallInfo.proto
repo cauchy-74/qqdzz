@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+message BallInfo {
+    string ball_id = 1;  // 球ID
+    string user_id = 2;  // 球所属用户ID
+    string ball_name = 3;  // 球的名称
+    int32 ball_level = 4;  // 球的等级
+    int32 ball_experience = 5;  // 球的经验值
+    int32 ball_attack = 6;  // 球的攻击力
+    int32 ball_defense = 7;  // 球的防御力
+    int32 ball_speed = 8;  // 球的速度
+    int32 ball_hp = 9;  // 球的生命值
+    int32 ball_mp = 10;  // 球的魔法值
+    string ball_texture = 11;  // 球的贴图
+}

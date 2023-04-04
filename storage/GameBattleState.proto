@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+import "GamePlayerState.proto";
+
+message GameBattleState {
+    string room_id = 1; // 房间ID
+    repeated GamePlayerState player_state_list = 2; // 玩家状态列表
+}

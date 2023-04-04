@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "UserInfo.proto";
+
+message GameRoom {
+    string room_id = 1;  // 房间ID
+    string room_name = 2;  // 房间名称
+    string map_id = 3;  // 地图ID
+    repeated UserInfo player_list = 4;  // 玩家列表
+    int32 room_status = 5;  // 房间状态（0：等待中，1：游戏中，2：已结束）
+    int32 max_players = 6;  // 最大玩家数量
+}

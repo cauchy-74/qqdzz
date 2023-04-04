@@ -1,0 +1,114 @@
+local skynet = require "skynet"
+local mysql = require "skynet.db.mysql"
+
+local MAX_POOL_SIZE = 100 -- 连接池大小
+local CONNECTION_TIMEOUT = 1000 -- 连接超时时间
+
+local pool -- 连接池
+
+local function create_pool()
+    pool = {}
+    pool.idle = {} -- 空闲连接队列
+    pool.busy = {} -- 忙碌连接队列
+    pool.size = 0 -- 当前连接数
+    pool.max_size = MAX_POOL_SIZE -- 最大连接数
+    pool.timeout = CONNECTION_TIMEOUT -- 连接超时时间
+end
+
+local function get_mysql()
+    local mysql_conf = {
+        host = "127.0.0.1",
+        port = 3306,
+        database = "test",
+        user = "root",
+        password = "password",
+        max_packet_size = 1024 * 1024
+    }
+    return mysql.connect(mysql_conf)
+end
+
+local function release_mysql(db)
+    db:set_keepalive(pool.timeout, pool.max_size)
+end
+
+local function connect_mysql()
+    local db = get_mysql()
+    if not db then
+        skynet.error("failed to connect to mysql server")
+        return nil
+    end
+    return db
+end
+
+local function acquire_mysql()
+    local db
+    if #pool.idle > 0 then
+        db = table.remove(pool.idle)
+    elseif pool.size < pool.max_size then
+        db = connect_mysql()
+        if db then
+            pool.size = pool.size + 1
+        end
+    end
+    if db then
+        table.insert(pool.busy, db)
+    end
+    return db
+end
+
+local function release_db(db)
+    for i, v in ipairs(pool.busy) do
+        if v == db then
+            table.remove(pool.busy, i)
+            table.insert(pool.idle, db)
+            return
+        end
+    end
+    release_mysql(db)
+end
+
+local function mysql_query(db, sql)
+    local res = db:query(sql)
+    if not res then
+        skynet.error("failed to execute sql: ", sql)
+    end
+    return res
+end
+
+local function mysql_execute(db, sql)
+    local res, err = db:execute(sql)
+    if not res then
+        skynet.error("failed to execute sql: ", sql, " error: ", err)
+    end
+    return res
+end
+
+local CMD = {}
+
+function CMD.query(sql)
+    local db = acquire_mysql()
+    if not db then
+        return nil
+    end
+    local res = mysql_query(db, sql)
+    release_db(db)
+    return res
+end
+
+function CMD.execute(sql)
+    local db = acquire_mysql()
+    if not db then
+        return nil
+    end
+    local res = mysql_execute(db, sql)
+    release_db(db)
+    return res
+end
+
+skynet.start(function()
+    create_pool()
+    skynet.dispatch("lua", function(_, _, cmd, ...)
+        local f = CMD[cmd]
+        skynet.ret(f(...))
+    end)
+end)

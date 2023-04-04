@@ -2,7 +2,7 @@ thread = 8
 cpath = "./skynet/cservice/?.so" -- c service 
 bootstrap = "snlua bootstrap"
 
-start = "Pmain2" -- main 
+start = "Pcjson" -- main 
 harbor = 0 -- cluster 
 
 lualoader = "./skynet/lualib/loader.lua" -- loader 

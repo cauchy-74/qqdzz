@@ -40,16 +40,16 @@ end
 --      2. random_scene(): 随机一个场景服务
 --      3. 向scene发送enter
 -- ]]
-s.client.enter = function(msg)
+s.client.enter_scene = function(msgBS)
     if s.sname then 
-        return { "enter", 1, "已在场景" }
+        return { "enter_scene", 1, "已在场景" }
     end
 
     local snode, sid = random_scene()
     local sname = "scene" .. sid 
-    local isok = s.call(snode, sname, "enter", s.id, mynode, skynet.self())
+    local isok = s.call(snode, sname, "enter_scene", s.id, mynode, skynet.self())
     if not isok then 
-        return { "enter", 1, "进入失败" }
+        return { "enter_scene", 1, "进入失败" }
     end 
     s.snode = snode 
     s.sname = sname 
@@ -66,11 +66,15 @@ s.client.shift = function(msg)
     s.call(s.snode, s.sname, "shift", s.id, x, y)
 end
 
-s.leave_scene = function() 
+s.client.leave_scene = function() 
     if not s.sname then 
         return 
     end 
-    s.call(s.snode, s.sname, "leave", s.id) -- s.id这里不清楚是哪个模块的id，按实际应该是playerid
+    local isok = s.call(s.snode, s.sname, "leave_scene", s.id)
+    if not isok then 
+        return { "leave_scene", 1, "离开场景失败" }
+    end
     s.snode = nil 
     s.sname = nil
+    return { "leave_scene", 0, "离开场景成功" }
 end

@@ -146,8 +146,131 @@ function test5()
     db:disconnect()
 end
 
+local mt = {}
+
 function test6() 
-    
+    pb.loadfile("./proto/Command.pb") 
+    local request = require "request"
+
+    local MsgType = pb.enum("CMD.Request.CommandType", "REGISTER")
+    print(MsgType)
+
+    local msg_login = "CMD.LoginRequest"
+    local package, messagename, _ = pb.type(msg_login)
+    print(package, messagename, _)
+
+    for name, number, type in pb.fields("CMD.LoginRequest") do 
+        print (name, number, type)
+    end
+
+    require "service"
+    ERROR("-----------------------------")
+
+    local cmd = {
+        "login", 
+        "123",
+        "123"
+    }
+
+    local login = {
+        username = "cauchy", 
+        password = "123",
+    }
+
+    local r = pb.encode("CMD.LoginRequest", login)
+
+    local Req = {
+        type = 0, 
+        data = r, 
+    }
+
+    local rr = pb.encode("CMD.Request", Req)
+    local m = pb.decode("CMD.Request", rr)
+    local mm = pb.decode("CMD.LoginRequest", m.data)
+    INFO(mm.username)
+
+    local encode = request:encode(cmd)
+    INFO(encode)
+    local m = request:decode("CMD.LoginRequest", encode)
+    INFO(m["username"])
+end
+
+function test7() 
+    require "service"
+
+    skynet.dispatch("lua", function(session, source, command, ...)
+        INFO(session)
+        INFO(source)
+        INFO(command)
+    end)
+
+    local socket = require "skynet.socket"
+    local listenfd = socket.listen("127.0.0.1", 8888)
+    socket.start(listenfd, function(listenfd) 
+        ERROR(listenfd)
+        --[[
+        -- skynet.send() -> socket
+        skynet.dispatch("socket", function(_, _, id, _, cmd)
+            skynet.error(id, cmd)
+            if cmd == "start" then 
+                INFO(cmd)
+            elseif cmd == "stop\n" then 
+                socket.close(listenfd)
+            end
+        end) 
+        ]]
+        skynet.fork(function(listenfd)
+            socket.start(listenfd)
+            while true do 
+                local s = socket.read(listenfd)
+                ERROR(s)
+                skynet.send(skynet.self(), "lua", s)
+                if not s then 
+                    socket.close(listenfd)
+                    return 
+                end
+            end
+        end, listenfd)
+    end)
+end
+
+function test8() 
+    require "service"
+    db = mysql.connect ({
+        host = "127.0.0.1", 
+        port = 3306, 
+        database = "test_db", 
+        user = "root", 
+        password = "root",
+        max_packet_size = 1024 * 1024, -- 数据包最大字节数
+        on_connect = nil, -- 连接成功的回调函数
+    })
+
+    local s = db:query("select * from UserInfo;")
+    ERROR(s[2].data)
+
+    local l = {
+        "login",
+        "123", 
+        "123",
+    }
+    request = require "request"
+    local data = request:encode(l)
+
+    -- local sql = "insert into UserInfo ('user_id', 'data') values (?, ?)"
+    local sql = "insert into X values (?)"
+    local stmt = db:prepare(sql)
+    stmt:bind(1, "cauchy")
+    -- stmt:bind(2, data)
+    stmt:execute()
+
+    -- db:execute(sql, 2, "123")
+
+    -- local sql = string.format("insert into UserInfo values(%d, %s);", 2, mysql.quote_sql_str(data))
+
+    -- db:execute(sql)
+
+    ERROR("+++++")
 end
 
 skynet.start(function()
@@ -155,5 +278,8 @@ skynet.start(function()
     -- test2()
     -- test3()
     -- test4()
-    test5()
+    -- test5()
+    -- test6()
+    -- test7()
+    -- test8()
 end)

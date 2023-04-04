@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message MapInfo {
+    string map_id = 1;  // 地图ID
+    string map_name = 2;  // 地图名称
+    int32 map_width = 3;  // 地图宽度
+    int32 map_height = 4;  // 地图高度
+    repeated string brick_texture = 5;  // 砖块贴图列表
+    repeated string obstacle_texture = 6;  // 障碍物贴图列表
+}

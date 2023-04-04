@@ -8,10 +8,10 @@ s.gate = nil
 
 require "scene" -- 由于这个模块用到了s.client，所以要在s.client定义之后在导入
 
-s.resp.client = function(source, cmd, msg)
+s.resp.client = function(source, cmd, msgBS)
     s.gate = source -- 保存玩家对应gateway的id，后续多文件分模块存放代码。可让agent的所有模块获得该值
     if s.client[cmd] then 
-        local ret_msg = s.client[cmd]( msg, source )
+        local ret_msg = s.client[cmd]( msgBS, source )
         if ret_msg then 
             skynet.send(source, "lua", "send", s.id, ret_msg)
         end 
@@ -23,7 +23,7 @@ s.resp.client = function(source, cmd, msg)
     end 
 end 
 
-s.client.work = function(msg)
+s.client.work = function(msgBS)
     -- [[ work,100 ]] -- 协议名，金币数量
     INFO("[agent]：开始[ work ]")
     s.data.coin = s.data.coin + 1 

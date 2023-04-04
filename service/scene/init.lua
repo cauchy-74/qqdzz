@@ -30,7 +30,7 @@ local function balllist_msg()
         table.insert( msg, v.y )
         table.insert( msg, v.size )
     end 
-    return msg;
+    return msg
 end 
 
 
@@ -74,7 +74,7 @@ end
 --      5. 回应成功信息（enter） 
 --      6. 向玩家发送战场信息（balllist，foodlist）协议
 --]]
-s.resp.enter = function(source, playerid, node, agent) 
+s.resp.enter_scene = function(source, playerid, node, agent) 
     if balls[playerid] then 
         return false
     end 
@@ -85,12 +85,12 @@ s.resp.enter = function(source, playerid, node, agent)
     b.agent = agent 
 
     -- 广播
-    local entermsg = { "enter", playerid, b.x, b.y, b.size } 
+    local entermsg = { "enter_scene", playerid, b.x, b.y, b.size } 
     broadcast(entermsg)
     -- 记录
     balls[playerid] = b
     -- 回应
-    local ret_msg = { "enter", 0, "进入游戏" }
+    local ret_msg = { "enter_scene", 0, "进入游戏" }
     s.send(b.node, b.agent, "send", ret_msg) 
     -- 发战场信息
     s.send(b.node, b.agent, "send", balllist_msg())
@@ -99,14 +99,15 @@ s.resp.enter = function(source, playerid, node, agent)
 end 
 
 -- leave退出协议
-s.resp.leave = function(source, playerid) 
+s.resp.leave_scene = function(source, playerid) 
     if not balls[playerid] then 
         return false 
     end 
     balls[playerid] = nil 
 
-    local leavemsg = { "leave", playerid } 
+    local leavemsg = { "leave_scene", playerid } 
     broadcast(leavemsg)
+    return true
 end 
 
 -- shift移动方向协议

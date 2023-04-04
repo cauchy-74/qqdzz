@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+message ChatMessage {
+    string sender_id = 1;  // 发送者ID
+    string receiver_id = 2;  // 接收者ID
+    string message_content = 3;  // 消息内容
+    int32 message_type = 4;  // 消息类型（1：文字消息，2：表情消息，3：语音消息）
+    int32 send_time = 5;  // 发送时间
+}

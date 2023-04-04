@@ -16,15 +16,34 @@ local s = require "service"
 
 s.client = {} -- 存放客户端消息处理方法
 
-s.client.login = function(fd, msg, source) 
+s.client.register = function(fd, msgBS, source)
+    local msg = request:decode("CMD.RegisterRequest", msgBS)  
+
+    local sql = "insert into UserInfo (user_id, data) values (?, ?)"
+
+    local res = skynet.call("mysql", "lua", "execute", sql, msg.userid, mysql.quote_sql_str(msgBS)) 
+    
+    if res then 
+        return { "register", 0, "成功注册" }
+    else 
+        return { "register", 1, "注册失败" }
+    end
+end
+
+s.client.login = function(fd, msgBS, source) 
     -- 采取玩家输入id和pw，id若是平台账号，那么服务端需要对应id；pw在此默认123
-    local playerid = tonumber(msg[2]) 
-    local pw = tonumber(msg[3]) -- 123 
+
+    local msg = request:decode("CMD.LoginRequest", msgBS) -- { username = "", password = "", userid =  }
+
+    local playerid = msg.userid 
+    local playername = msg.username
+    local pw = msg.password
+
     local gate = source -- 转发消息的gateway 服务 
     local agent -- pagent那里必须传出来
 
     node = skynet.getenv("node") 
-    if pw ~= 123 then 
+    if pw ~= "123" then 
         return { "login", 1, -1, "密码错误" }
     else 
         -- 向agentmgr发起请求
@@ -51,12 +70,12 @@ end
 --      fd:     客户端连接标识，由gateway发过来
 --      cmd, msg:协议名和协议对象
 --]]
-s.resp.client = function(source, fd, cmd, msg) 
+s.resp.client = function(source, fd, cmd, msgBS) 
     if s.client[cmd] then 
-        local ret_msg = s.client[cmd](fd, msg, source)
+        local ret_msg = s.client[cmd](fd, msgBS, source)
         skynet.send(source, "lua", "send_by_fd", fd, ret_msg)
     else 
-        INFO("[login" .. s.id .. "]: resp.client中找不到%s的方法", cmd)
+        INFO("[login" .. s.id .. "]: resp.client中找不到[ " .. cmd .. " ]的方法")
     end 
 end 
 

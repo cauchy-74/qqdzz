@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+message FriendInfo {
+    string friend_id = 1;  // 好友ID
+    string friend_name = 2;  // 好友名字
+    string friend_avatar = 3;  // 好友头像
+    int32 friend_level = 4;  // 好友等级
+    int32 friend_vip_level = 5;  // 好友VIP等级
+    bool is_online = 6;  // 是否在线
+}
