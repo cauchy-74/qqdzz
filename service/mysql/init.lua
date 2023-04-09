@@ -1,5 +1,4 @@
 local skynet = require "skynet"
-local mysql = require "skynet.db.mysql"
 local s = require "service"
 
 local MAX_POOL_SIZE = 100 -- 连接池大小
@@ -72,6 +71,7 @@ local function mysql_query(db, sql)
     local res = db:query(sql)
     if not res then
         ERROR("[mysql]：查询sql语句 [ " .. sql .. " ]失败")
+        return nil
     end
     return res
 end
@@ -80,6 +80,7 @@ local function mysql_execute(db, sql, ...)
     local res, err = db:execute(sql, ...)
     if not res then
         ERROR("[mysql]：执行sql语句 [ " .. sql .. " ]失败: " .. err)
+        return nil
     end
     return res
 end

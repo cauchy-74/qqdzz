@@ -133,17 +133,17 @@ local process_msg = function(fd, msgstr)
     local conn = conns[fd]
     local playerid = conn.playerid 
     -- [[ 想到一个问题：id维护的是当前网关下的conn中的id，如果从别的网关登录，别的节点登录呢？ ]]
-
+        
     -- 处理重连消息 客户端client自己发reconnect
     if cmd == "reconnect" then 
         process_reconnect(fd, msg)
         return 
     end
-
+        
     if not playerid then -- "login", "register"
         -- 如果未登录
         -- 随机选择一个同节点的login服务转发消息
-        
+         
         local node = skynet.getenv("node")
         local nodecfg = runconfig[node]
         local loginid = math.random(1, #nodecfg.login)
@@ -154,10 +154,10 @@ local process_msg = function(fd, msgstr)
         end
 
         local msgBS = request:encode(msg)
-
+         
         INFO("[gateway" .. s.id .. "]：" .. "该连接fd = " .. fd .. "尚未登录账号")
         INFO("[gateway" .. s.id .. "]：" .. "随机选择节点" .. login .. "登录")
-
+        
         skynet.send(login, "lua", "client", fd, cmd, msgBS)
     else 
         -- 如已登录，消息转发给对应的agent

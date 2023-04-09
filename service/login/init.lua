@@ -3,7 +3,7 @@
 --[[
 --      client->: login,123,456
 --      resp  ->: login,0,登录成功
---
+--  
 --      登录服务：
 --          1. 校验用户名和密码
 --          2. 给agentmgr发送reqlogin，请求登录
@@ -17,11 +17,11 @@ local s = require "service"
 s.client = {} -- 存放客户端消息处理方法
 
 s.client.register = function(fd, msgBS, source)
-    local msg = request:decode("CMD.RegisterRequest", msgBS)  
-
-    local sql = "insert into UserInfo (user_id, data) values (?, ?)"
-
-    local res = skynet.call("mysql", "lua", "execute", sql, msg.userid, mysql.quote_sql_str(msgBS)) 
+    local msg, types = request:decode("CMD.RegisterRequest", msgBS)  
+    
+    local sql = string.format("insert into UserInfo (user_id, data) values(%d, %s);", msg.userid, mysql.quote_sql_str(msgBS))
+    
+    local res = skynet.call("mysql", "lua", "query", sql)
     
     if res then 
         return { "register", 0, "成功注册" }
@@ -31,9 +31,16 @@ s.client.register = function(fd, msgBS, source)
 end
 
 s.client.login = function(fd, msgBS, source) 
-    -- 采取玩家输入id和pw，id若是平台账号，那么服务端需要对应id；pw在此默认123
 
     local msg = request:decode("CMD.LoginRequest", msgBS) -- { username = "", password = "", userid =  }
+
+    local sql = string.format("select * from UserInfo where user_id = %d;", msg.userid)
+    local res = skynet.call("mysql", "lua", "query", sql)
+
+    -- 账号未注册
+    if type(res[1]) ~= "table" then -- 这样判断是由于res返回值找不出问题，这样能判断先用着
+        return { "login", 1, -1, "账号未注册" }
+    end
 
     local playerid = msg.userid 
     local playername = msg.username
@@ -43,7 +50,10 @@ s.client.login = function(fd, msgBS, source)
     local agent -- pagent那里必须传出来
 
     node = skynet.getenv("node") 
-    if pw ~= "123" then 
+
+    -- 拿到查询的data，decode后判断密码是否有误
+    local upw = request:decode("CMD.RegisterRequest", res[1].data)
+    if  pw ~= upw.password then 
         return { "login", 1, -1, "密码错误" }
     else 
         -- 向agentmgr发起请求

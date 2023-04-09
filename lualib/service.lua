@@ -5,6 +5,7 @@ local cluster = require "skynet.cluster"
 request = require "request" -- lua模块自定义的使用Command.proto
 
 mysql = require "skynet.db.mysql"
+
 -- 添加协议模块的导入
 pb = require "pb"
 pb.loadfile("./proto/Command.pb")

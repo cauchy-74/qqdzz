@@ -106,7 +106,7 @@ local mysql = require "skynet.db.mysql"
 local db -- 放这里连接会报错，coroutine外部调用
 
 function test5() 
-    pb.loadfile("./storage/playerdata.pb") 
+    pb.loadfile("./storage/UserInfo.pb") 
 
     db = mysql.connect ({
         host = "127.0.0.1", 
@@ -119,22 +119,30 @@ function test5()
     })
 
     local playerdata = {
-        playerid = 1, 
-        coin = 2, 
-        name = "Tom",
+        user_id = 1, 
+        username = "Tom",
+        password = "123",
+        email = "123@qq.com",
         level = 3, 
+        experience = 6,
+        coin = 2, 
         last_login_time = os.time(), 
     }
-    local data = pb.encode("playerdata.BaseInfo", playerdata)
-    print("len: " .. string.len(data))
-    -- local sql = string.format("insert into baseinfo (playerid, data) values (%d, %s);", tonumber(playerdata.playerid), mysql.quote_sql_str(data))
+    
+    db:query("create table UserInfo(user_id int, username varchar(255));")
 
-    local sql = string.format("select * from baseinfo where playerid = 1;")
+    -- local data = pb.encode("UserInfo", playerdata)
+    -- print("len: " .. string.len(data))
+    local sql = string.format("insert into UserInfo (user_id, username) values (%d, %s);", tonumber(playerdata.user_id), playerdata.username)
+
+    -- local sql = string.format("select * from baseinfo where playerid = 1;")
 
     local res = db:query(sql)
+    skynet.error("++++++++++++++++++++++++++++")
 
-    local data = res[1].data
-    local udata = pb.decode("playerdata.BaseInfo", data)
+    -- local data = res[1].data
+    -- local udata = pb.decode("playerdata.BaseInfo", data)
+    
     if res.err then 
         print("error: " .. res.err)
     else 
@@ -245,7 +253,7 @@ function test8()
         max_packet_size = 1024 * 1024, -- 数据包最大字节数
         on_connect = nil, -- 连接成功的回调函数
     })
-
+    
     local s = db:query("select * from UserInfo;")
     ERROR(s[2].data)
 
@@ -257,19 +265,30 @@ function test8()
     request = require "request"
     local data = request:encode(l)
 
+    -- local sql = "insert into UserInfo(user_id, data) values(3, '1234567');"
+    -- local res = db:execute(sql)
+        
+    -- ERROR(res)
+
+    -- local res = db:query("insert into UserInfo(user_id, data) values(3, '1234567');")
+    -- ERROR(res) 
+
     -- local sql = "insert into UserInfo ('user_id', 'data') values (?, ?)"
+    
+    --[[
     local sql = "insert into X values (?)"
     local stmt = db:prepare(sql)
     stmt:bind(1, "cauchy")
     -- stmt:bind(2, data)
     stmt:execute()
+    ]]
 
     -- db:execute(sql, 2, "123")
 
     -- local sql = string.format("insert into UserInfo values(%d, %s);", 2, mysql.quote_sql_str(data))
-
     -- db:execute(sql)
 
+    -- db:close()
     ERROR("+++++")
 end
 
@@ -278,8 +297,8 @@ skynet.start(function()
     -- test2()
     -- test3()
     -- test4()
-    -- test5()
+    test5()
     -- test6()
     -- test7()
-    -- test8()
+    --test8()
 end)
