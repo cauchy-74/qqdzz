@@ -30,6 +30,8 @@ function mgrplayer()
 end 
 
 s.resp.reqkick = function(source, playerid, reason) 
+    playerid = tonumber(playerid) -- 转为下标数字
+
     local mplayer = players[playerid] 
     if not mplayer then 
         return false 
@@ -85,6 +87,7 @@ s.resp.reqlogin = function(source, playerid, node, gate)
     player.agent = nil 
     player.status = STATUS.LOGIN 
     players[playerid] = player 
+
     -- send只是发，call会等待回应 -> nodemgr: return srv
     local agent = s.call(node, "nodemgr", "newservice", "agent", "agent", playerid) 
     player.agent = agent 

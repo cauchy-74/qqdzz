@@ -18,8 +18,20 @@ s.client = {} -- 存放客户端消息处理方法
 
 s.client.register = function(fd, msgBS, source)
     local msg, types = request:decode("CMD.RegisterRequest", msgBS)  
+
+    local user_info = {
+        user_id = msg.userid, 
+        username = msg.username, 
+        password = msg.password, 
+        email = msg.email, 
+        level = 1, 
+        experience = 1, 
+        coin = 0, 
+    }
+     
+    local data = pb.encode("UserInfo", user_info)
     
-    local sql = string.format("insert into UserInfo (user_id, data) values(%d, %s);", msg.userid, mysql.quote_sql_str(msgBS))
+    local sql = string.format("insert into UserInfo (user_id, data) values(%d, %s);", msg.userid, mysql.quote_sql_str(data))
     
     local res = skynet.call("mysql", "lua", "query", sql)
     
@@ -52,8 +64,9 @@ s.client.login = function(fd, msgBS, source)
     node = skynet.getenv("node") 
 
     -- 拿到查询的data，decode后判断密码是否有误
-    local upw = request:decode("CMD.RegisterRequest", res[1].data)
-    if  pw ~= upw.password then 
+    local user_info = pb.decode("UserInfo", res[1].data)
+
+    if  pw ~= user_info.password then 
         return { "login", 1, -1, "密码错误" }
     else 
         -- 向agentmgr发起请求

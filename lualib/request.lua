@@ -68,7 +68,19 @@ function mt:createMessage(messageType, messageTable)
     local message = {} -- proto结构需要按用户提交的格式来统一
 
     for name, id, types in pb.fields(messageType) do 
-        message[name] = messageTable[id + 1]
+        -- 由于使用时，不存在的字段nil不能判断，直接是空的
+        -- 所以这里不存在的字段:
+        -- int32: math.mininteger 极小值 
+        -- string: 都置为字符串空"nil"
+        if not messageTable[id + 1] then 
+            if types == "int32" then 
+                message[name] = math.mininteger
+            elseif types == "string" then
+                message[name] = "nil"
+            end
+        else
+            message[name] = messageTable[id + 1]
+        end
     end
     return message
 end

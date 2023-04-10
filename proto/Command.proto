@@ -43,6 +43,7 @@ message RegisterRequest {
     string username = 1;
     string password = 2;
     int32 userid = 3;
+    string email = 4; 
 }
 
 message RegisterResponse {

@@ -23,18 +23,48 @@ s.resp.client = function(source, cmd, msgBS)
     end 
 end 
 
-s.client.work = function(msgBS)
+s.client.view = function(msgBS, source)
+    local user_info = s.data
+    ERROR("user_id: " .. user_info.user_id)
+    ERROR("username: " .. user_info.username)
+    ERROR("password: " .. user_info.password)
+    ERROR("email: " .. user_info.email)
+    ERROR("level: " .. user_info.level)
+    ERROR("coin: " .. user_info.coin)
+    ERROR("experience: " .. user_info.experience)
+    ERROR("last_login_time: " .. user_info.last_login_time)
+end
+
+s.client.work = function(msgBS, source)
     -- [[ work,100 ]] -- 协议名，金币数量
     INFO("[agent]：开始[ work ]")
     s.data.coin = s.data.coin + 1 
-    return { "work", s.data.coin }
+    return { "work", 0, s.data.coin, "工作+1" }
 end 
+
+-- 保存数据，可以玩家主动保存
+s.client.save_data = function(msgBS, source) 
+    local user_info = pb.encode("UserInfo", s.data)
+    local sql = string.format("update UserInfo set data = %s where user_id = %d;", mysql.quote_sql_str(user_info), s.data.user_id)
+    local res = skynet.call("mysql", "lua", "query", sql)
+    if not res then 
+        return { "save_data", 1, "保存数据失败" }
+    end
+    return { "save_data", 0, "保存数据成功"}
+end
+
+-- 主动离线
+s.client.exit = function(msgBS, source)
+    ERROR("[agent]：exit")
+    skynet.send("agentmgr", "lua", "reqkick", s.id, "主动离线")
+end
+
+
 
 -- 客户端掉线
 s.resp.kick = function(source) 
-    s.leave_scene()  -- 向场景服务请求退出
-    -- 这里需要保存用户数据
-    skynet.sleep(200)
+    s.client.leave_scene(nil)  -- 向场景服务请求退出
+    s.client.save_data(nil, nil)
 end 
 
 s.resp.exit = function(source)
@@ -59,6 +89,7 @@ function get_week_by_thu2040(timestamp)
     local week = (timestamp + 3600 * 8 - 3600 * 20 - 40 * 60) / (3600 * 24 * 7)
     return math.ceil(week)
 end
+
 -- 开启服务器从数据库读取
 -- 关闭时应保存
 local last_check_time = 1582935650 
@@ -72,22 +103,37 @@ function timer()
     end
 end
 
+function first_login_day()
+    INFO("【INFO】[agent]：检测到当天首次登录~~~")
+    s.data.experience = s.data.experience + 1 
+end
+
 s.init = function() 
-    -- 模拟数据从数据库加载
+    local sql = string.format("select * from UserInfo where user_id = %d;", s.id)
+    local res = skynet.call("mysql", "lua", "query", sql)
+    local user_info = pb.decode("UserInfo", res[1].data)
+
     s.data = {
-        coin = 100, 
-        last_login_time = 1582725978
+        user_id = user_info.user_id,
+        username = user_info.username,
+        password = user_info.password, 
+        email = user_info.email,
+        level = user_info.level, 
+        experience = user_info.experience, 
+        coin = user_info.coin, 
+        last_login_time = user_info.last_login_time,
     }
+    
     local last_day = get_day(s.data.last_login_time)
     local day = get_day(os.time())
 
     s.data.last_login_time = os.time() -- update
+
     -- 判断每天第一次登录
     if day > last_day then 
-        -- first_login_day()
+        first_login_day()
     end
 end 
-
 
 --[[
 --      agentmgr: s.call(node, "nodemgr", "newservice", "agent", "agent", playerid)

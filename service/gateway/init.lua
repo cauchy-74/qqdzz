@@ -28,7 +28,7 @@ function gateplayer()
         playerid = nil, 
         agent = nil, 
         conn = nil,
-        key = math.random(1, 99999999), -- 掉线重连的标识码
+        token = math.random(1, 99999999), -- 掉线重连的标识码
         lost_conn_time = nil, -- 记录最后一次断开连接的时间
         msgcache = {}, -- 未发送的消息缓存
     }
@@ -95,7 +95,7 @@ end
 
 local process_reconnect = function(fd, msg)
     local playerid = tonumber(msg[2]) 
-    local key = tonumber(msg[3])
+    local token = tonumber(msg[3])
 
     local conn = conns[fd]
     if not conn then 
@@ -111,14 +111,14 @@ local process_reconnect = function(fd, msg)
         ERROR("[gateway" .. s.id .. "]：重连失败，用户连接conn未断开")
         return 
     end
-    if gplayer.key ~= key then 
+    if gplayer.token ~= token then 
         ERROR("[gateway" .. s.id .. "]：重连失败，用户令牌不匹配")
     end 
     -- 绑定
     gplayer.conn = conn 
     conn.playerid = playerid 
     -- 回应
-    s.resp.send_by_fd(nil, fd, { "reconnect", 0 })
+    s.resp.send_by_fd(nil, fd, { "reconnect", 0, "重连成功"})
     -- 发送缓存消息
     for i, cmsg in ipairs(gplayer.msgcache) do 
         s.resp.send_by_fd(nil, fd, cmsg)
@@ -149,6 +149,7 @@ local process_msg = function(fd, msgstr)
         local loginid = math.random(1, #nodecfg.login)
         -- 随机选择login服务
         local login = "login" .. loginid 
+
         if msg[4] == nil then -- 可以允许用户自己指定id，之后肯定需要调整，维护一个递增的id
             table.insert(msg, math.random(1, 999999)) -- msg.useid
         end
@@ -285,15 +286,19 @@ s.resp.sure_agent = function(source, fd, playerid, agent)
     gplayer.conn = conn 
     players[playerid] = gplayer 
 
-    return true, gplayer.key
+    return true, gplayer.token
 end 
 
 s.resp.kick = function(source, playerid) 
+    playerid = tonumber(playerid)
+
     local gplayer = players[playerid]
     if not gplayer then 
         return 
     end 
     
+    ERROR("[gateway]：执行[ kick ]指令，断开与玩家" .. playerid .. "的连接")
+
     local c = gplayer.conn 
     players[playerid] = nil 
     if not c then 
@@ -307,7 +312,7 @@ end
 local closing = false
 
 s.resp.shutdown = function()
-        closing = true
+    closing = true
 end
 
 s.start(...)

@@ -45,7 +45,17 @@ s.client.enter_scene = function(msgBS)
         return { "enter_scene", 1, "已在场景" }
     end
 
-    local snode, sid = random_scene()
+    local msg = request:decode("CMD.EnterSceneRequest", msgBS)
+
+    local snode, sid
+    -- 不存在的字段，在request中，置为了字符串nil
+    if msg.sceneid ~= "nil" then 
+        -- 如果指定了场景：默认本节点
+        snode, sid = mynode, msg.sceneid
+    else
+        snode, sid = random_scene()
+    end
+
     local sname = "scene" .. sid 
     local isok = s.call(snode, sname, "enter_scene", s.id, mynode, skynet.self())
     if not isok then 
@@ -66,15 +76,25 @@ s.client.shift = function(msg)
     s.call(s.snode, s.sname, "shift", s.id, x, y)
 end
 
-s.client.leave_scene = function() 
+s.client.leave_scene = function(msgBS) 
     if not s.sname then 
-        return 
+        return nil
     end 
+    
+    local msg = request:decode("CMD.LeaveSceneRequest", msgBS)
+
+    if msg.sceneid ~= "nil" and ("scene" .. msg.sceneid) ~= s.sname then 
+        return { "leave_scene", 1, "不在该场景中" }
+    end
+
     local isok = s.call(s.snode, s.sname, "leave_scene", s.id)
+
     if not isok then 
         return { "leave_scene", 1, "离开场景失败" }
     end
+
     s.snode = nil 
     s.sname = nil
     return { "leave_scene", 0, "离开场景成功" }
 end
+
