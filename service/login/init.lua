@@ -36,9 +36,17 @@ s.client.register = function(fd, msgBS, source)
     local res = skynet.call("mysql", "lua", "query", sql)
     
     if res then 
-        return { "register", 0, "成功注册" }
+        return cjson.encode({ 
+            [1] = {msg_type = "register_resp"}, 
+            [2] = {success = true},
+            [3] = {msg = "register success"}
+        })
     else 
-        return { "register", 1, "注册失败" }
+        return cjson.encode({ 
+            [1] = {msg_type = "register_resp"}, 
+            [2] = {success = false},
+            [3] = {msg = "register failed"}
+        })
     end
 end
 
@@ -51,7 +59,11 @@ s.client.login = function(fd, msgBS, source)
 
     -- 账号未注册
     if type(res[1]) ~= "table" then -- 这样判断是由于res返回值找不出问题，这样能判断先用着
-        return { "login", 1, -1, "账号未注册" }
+        return cjson.encode({
+            [1] = {msg_type = "login_resp"},
+            [2] = {success = "false"},
+            [3] = {msg = "account not registered"}
+        })
     end
 
     local playerid = msg.userid 
@@ -67,25 +79,43 @@ s.client.login = function(fd, msgBS, source)
     local user_info = pb.decode("UserInfo", res[1].data)
 
     if  pw ~= user_info.password then 
-        return { "login", 1, -1, "密码错误" }
+        return cjson.encode({
+            [1] = {msg_type = "login_resp"}, 
+            [2] = {success = "false"}, 
+            [3] = {msg = "wrong password"}
+        })
     else 
         -- 向agentmgr发起请求
         local isok, pagent = skynet.call("agentmgr", "lua", "reqlogin", playerid, node, gate) 
         agent = pagent
 
         if not isok then 
-            return { "login", 1, -1, "请求mgr失败" }
+            return cjson.encode({
+                [1] = {msg_type = "login_resp"}, 
+                [2] = {success = "false"}, 
+                [3] = {msg = "failed to request agentmgr"}
+            })
         end 
     end 
     -- 回应gate
-    local isok, key = skynet.call(gate, "lua", "sure_agent", fd, playerid, agent) 
+    local isok, token = skynet.call(gate, "lua", "sure_agent", fd, playerid, agent) 
     
     if not isok then 
-        return { "login", 1, key, "gate注册失败" }
+        return cjson.encode({
+            [1] = {msg_type = "login_resp"}, 
+            [2] = {success = "false"}, 
+            [3] = {msg = "gateway authentication failed"}
+        })
     end 
 
     INFO("[login" .. s.id .. "]: 登录成功 => 用户id：" .. playerid)
-    return { "login", 0, key, "登录成功" }
+
+    return cjson.encode({
+        [1] = {msg_type = "login_resp"}, 
+        [2] = {success = "true"}, 
+        [3] = {token = token}, 
+        [4] = {msg = "login success"}
+    })
 end 
 
 --[[

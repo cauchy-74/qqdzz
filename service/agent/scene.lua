@@ -42,7 +42,11 @@ end
 -- ]]
 s.client.enter_scene = function(msgBS)
     if s.sname then 
-        return { "enter_scene", 1, "已在场景" }
+        return cjson.encode({
+            [1] = {msg_type = "enter_scene_resp"}, 
+            [2] = {success = "false"}, 
+            [3] = {msg = "already in the scene"}, 
+        })
     end
 
     local msg = request:decode("CMD.EnterSceneRequest", msgBS)
@@ -59,42 +63,73 @@ s.client.enter_scene = function(msgBS)
     local sname = "scene" .. sid 
     local isok = s.call(snode, sname, "enter_scene", s.id, mynode, skynet.self())
     if not isok then 
-        return { "enter_scene", 1, "进入失败" }
+        return cjson.encode({
+            [1] = {msg_type = "enter_scene_resp"}, 
+            [2] = {success = "false"}, 
+            [3] = {msg = "enter scene failed"}, 
+        })
     end 
     s.snode = snode 
     s.sname = sname 
     INFO("[agent/scene]：成功进入场景[" .. s.sname .. "]")
-    return nil 
+
+    return cjson.encode({
+        [1] = {msg_type = "enter_scene_resp"}, 
+        [2] = {success = "true"}, 
+        [3] = {msg = "enter scene success"}, 
+    })
 end
 
 s.client.shift = function(msg)
     if not s.sname then 
-        return 
+        return nil
     end 
     local x = msg[2] or 0 
     local y = msg[3] or 0 
     s.call(s.snode, s.sname, "shift", s.id, x, y)
+
+    return cjson.encode({
+        [1] = {msg_type = "shift_resp"}, 
+        [2] = {success = "true"}, 
+        [3] = {msg = "shift"}, 
+    })
 end
 
 s.client.leave_scene = function(msgBS) 
     if not s.sname then 
-        return nil
+        return cjson.encode({
+            [1] = {msg_type = "leave_scene_resp"}, 
+            [2] = {success = "false"}, 
+            [3] = {msg = "not in scene"}, 
+        })
     end 
     
     local msg = request:decode("CMD.LeaveSceneRequest", msgBS)
 
     if msg.sceneid ~= "nil" and ("scene" .. msg.sceneid) ~= s.sname then 
-        return { "leave_scene", 1, "不在该场景中" }
+        return cjson.encode({
+            [1] = {msg_type = "leave_scene_resp"}, 
+            [2] = {success = "false"}, 
+            [3] = {msg = "not in scene"}, 
+        })
     end
 
     local isok = s.call(s.snode, s.sname, "leave_scene", s.id)
 
     if not isok then 
-        return { "leave_scene", 1, "离开场景失败" }
+        return cjson.encode({
+            [1] = {msg_type = "leave_scene_resp"}, 
+            [2] = {success = "false"}, 
+            [3] = {msg = "leave scene failed"}, 
+        })
     end
 
     s.snode = nil 
     s.sname = nil
-    return { "leave_scene", 0, "离开场景成功" }
+    return cjson.encode({
+        [1] = {msg_type = "leave_scene_resp"}, 
+        [2] = {success = "true"}, 
+        [3] = {msg = "leave scene success"}, 
+    })
 end
 

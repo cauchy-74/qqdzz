@@ -20,8 +20,12 @@ skynet.start(function()
     cluster.reload(runconfig.cluster) 
     cluster.open(mynode) 
 
+    -- 数据库连接池
     local mysql = skynet.newservice("mysql", "mysql", 0)
     skynet.name("mysql", mysql)
+    -- 消息分发服务
+    local msgserver = skynet.newservice("msgserver", "msgserver", 0)
+    skynet.name("msgserver", msgserver)
 
     -- gate 
     for i, v in pairs(nodecfg.gateway) do 
@@ -53,6 +57,7 @@ skynet.start(function()
     end
 
     skynet.newservice("admin", "admin", 0)
+
 
     skynet.exit()
 end)

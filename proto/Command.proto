@@ -130,8 +130,7 @@ message UnblockUserResponse {
 
 // 11. 添加好友
 message AddFriendRequest {
-    string friend_username = 1;
-    int32 friend_userid = 2;
+    int32 friend_id = 1;
 }
 
 message AddFriendResponse {
@@ -140,10 +139,14 @@ message AddFriendResponse {
 
 // 12. 删除好友
 message DelFriendRequest {
-    string friend_username = 1;
-    int32 friend_userid = 2;
+    int32 friend_id = 1;
 }
 
 message DelFriendResponse {
     string message = 1;
+}
+
+// 13. 确认好友
+message SureFriendResponse {
+    string message = 1; // yes, no 
 }

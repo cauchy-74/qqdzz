@@ -4,9 +4,12 @@ local skynet = require "skynet"
 local s = require "service"
 
 s.client = {} 
+s.message = {} 
+-- [channel_low] = { message } { "add_friend", {} }
 s.gate = nil 
 
 require "scene" -- 由于这个模块用到了s.client，所以要在s.client定义之后在导入
+require "friend"
 
 s.resp.client = function(source, cmd, msgBS)
     s.gate = source -- 保存玩家对应gateway的id，后续多文件分模块存放代码。可让agent的所有模块获得该值
@@ -25,6 +28,7 @@ end
 
 s.client.view = function(msgBS, source)
     local user_info = s.data
+
     ERROR("user_id: " .. user_info.user_id)
     ERROR("username: " .. user_info.username)
     ERROR("password: " .. user_info.password)
@@ -33,13 +37,32 @@ s.client.view = function(msgBS, source)
     ERROR("coin: " .. user_info.coin)
     ERROR("experience: " .. user_info.experience)
     ERROR("last_login_time: " .. user_info.last_login_time)
+
+    return cjson.encode({
+        [1] = {msg_type = "view_resp"},
+        [2] = {success = "true"},
+        [3] = {msg = {
+            [1] = {user_id = user_info.user_id},
+            [2] = {username = user_info.username}, 
+            [3] = {password = user_info.password}, 
+            [4] = {email = user_info.email}, 
+            [5] = {level = user_info.level}, 
+            [6] = {coin = user_info.coin}, 
+            [7] = {experience = user_info.experience}, 
+            [8] = {last_login_time = user_info.last_login_time}, 
+        }},
+    })
 end
 
 s.client.work = function(msgBS, source)
     -- [[ work,100 ]] -- 协议名，金币数量
     INFO("[agent]：开始[ work ]")
     s.data.coin = s.data.coin + 1 
-    return { "work", 0, s.data.coin, "工作+1" }
+    return cjson.encode({
+        [1] = {msg_type = "work_resp"}, 
+        [2] = {success = "true"},
+        [3] = {msg = "coin += 1"},
+    })
 end 
 
 -- 保存数据，可以玩家主动保存
@@ -48,9 +71,19 @@ s.client.save_data = function(msgBS, source)
     local sql = string.format("update UserInfo set data = %s where user_id = %d;", mysql.quote_sql_str(user_info), s.data.user_id)
     local res = skynet.call("mysql", "lua", "query", sql)
     if not res then 
-        return { "save_data", 1, "保存数据失败" }
+        return cjson.encode({
+            [1] = {msg_type = "save_data_resp"}, 
+            [2] = {success = "false"},
+            [3] = {msg = "save data failed"},
+        })
     end
-    return { "save_data", 0, "保存数据成功"}
+
+
+    return cjson.encode({
+        [1] = {msg_type = "save_data_resp"}, 
+        [2] = {success = "true"},
+        [3] = {msg = "save data success"},
+    })
 end
 
 -- 主动离线
@@ -133,6 +166,49 @@ s.init = function()
     if day > last_day then 
         first_login_day()
     end
+
+    skynet.fork(function()
+        skynet.timeout(10 * 100, function()
+            for channel, v in pairs(s.message) do 
+                if channel == "add_friend" then 
+                    
+                end
+            end
+        end)
+    end)
+
+
+    local func = function(channel, message)
+        if channel == "friend" and message.type == "add_friend" then 
+            if message.friend_id == s.id then 
+                table.insert(s.message[message.type], message)
+            end
+        elseif channel == "friend" and message.type == "del_friend" then 
+            if message.friend_id == s.id then 
+                table.insert(s.message[message.type], message) 
+            end
+        elseif channel == "friend" and message.type == "sure_friend" then 
+            if message.friend_id == s.id then 
+                if message.message == "yes" then 
+                    ERROR("[agent]：" .. "对方已确认添加您为好友") 
+                    local sql1 = string.format("insert into FriendInfo (user_id, friend_id, chat_msg) values (%d, %d, %s);", tonumber(s.id), tonumber(message.user_id), {})
+                    local sql2 = string.format("insert into FriendInfo (user_id, friend_id, chat_msg) values (%d, %d, %s);", tonumber(message.user_id), tonumber(s.id), {})
+                    skynet.send("mysql", "lua", "query", sql1)
+                    skynet.send("mysql", "lua", "query", sql2)
+                elseif message.message == "no" then 
+                    ERROR("[agent]：" .. "对方已拒绝添加您为好友") 
+                end
+            end
+        end
+    end
+    local func_msg = string.dump(func)
+    
+    -- 订阅频道
+    -- 对上线用户注册 friend channel 回调
+    -- ps: skynet.send中pack参数不能serialize type function, 两种方式
+    --  1. { func = func } -> msg.func()  -- 好像还是不可以
+    --  2. string.dump(func) -> load(func)()
+    skynet.send("msgserver", "lua", "subscribe", "friend", { func = func_msg })
 end 
 
 --[[

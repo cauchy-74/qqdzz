@@ -233,18 +233,19 @@ function s.init()
 end 
 
 -- 用于login服务的消息转发，msg发给指定fd的客户端
-s.resp.send_by_fd = function(source, fd, msg) 
+s.resp.send_by_fd = function(source, fd, msgJS) 
     if not conns[fd] then 
         return 
     end 
 
-    local buff = str_pack(msg[1], msg)
-    INFO("[gateway" .. s.id .. "]：发送消息【" .. table.concat(msg, ",") .. "】给fd = " .. fd .. "的客户端")
-    socket.write(fd, buff) 
+    -- local buff = str_pack(msg[1], msgJS)
+    INFO("[gateway" .. s.id .. "]：发送消息【" .. msgJS .. "】给fd = " .. fd .. "的客户端")
+    socket.write(fd, msgJS)
+    socket.write(fd, '\n')
 end 
 
 -- 用于agent消息转发，msg发给指定玩家id的客户端
-s.resp.send = function(source, playerid, msg)
+s.resp.send = function(source, playerid, msgJS) -- cjson
     -- 这里也被tonumber坑了！！！！！！！！！！！！
     local gplayer = players[tonumber(playerid)] 
     if gplayer == nil then 
@@ -252,14 +253,14 @@ s.resp.send = function(source, playerid, msg)
     end 
     local c = gplayer.conn 
     if c == nil then -- 掉线了维护玩家的消息缓存
-        table.insert(gplayer.msgcache, msg)
+        table.insert(gplayer.msgcache, msgJS)
         local len = #gplayer.msgcache 
         if len > 500 then -- 超过500条，强制下线
             skynet.call("agentmgr", "lua", "reqkick", playerid, "gate消息缓存过多")
         end 
         return 
     end 
-    s.resp.send_by_fd(nil, c.fd, msg)
+    s.resp.send_by_fd(nil, c.fd, msgJS)
 end 
 
 -- login通知gateway，将client关联agent， fd关联playerid

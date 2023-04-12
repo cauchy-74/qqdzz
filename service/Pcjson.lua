@@ -292,13 +292,31 @@ function test8()
     ERROR("+++++")
 end
 
+function test9() 
+    db = mysql.connect ({
+        host = "127.0.0.1", 
+        port = 3306, 
+        database = "test_db", 
+        user = "root", 
+        password = "root",
+        max_packet_size = 1024 * 1024,
+    })
+    local t = os.date("%Y-%m-%d %H:%M:%S", os.time())
+    local sql = string.format("insert into ttt values(1, '%s');", t)
+
+    db:query(sql)
+
+    db:disconnect()
+end
+
 skynet.start(function()
     -- test1()
     -- test2()
     -- test3()
     -- test4()
-    test5()
+    -- test5()
     -- test6()
     -- test7()
     --test8()
+    test9()
 end)

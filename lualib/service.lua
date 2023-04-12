@@ -11,6 +11,8 @@ pb = require "pb"
 pb.loadfile("./proto/Command.pb")
 pb.loadfile("./storage/storage.pb")
 
+cjson = require "cjson"
+
 local function skylog(str, color)
     return function(...)
         skynet.error(string.format("%s%s%s\x1b[0m", color, str, ...))

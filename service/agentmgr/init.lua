@@ -128,4 +128,11 @@ s.resp.shutdown = function(source, num)
     end
 end
 
+-- 获取玩家在线状态
+s.resp.get_online_id = function(source, id)
+    if players[id] == nil then return false end 
+    if players[id].status ~= STATUS.GAME then return false end
+    return true
+end
+
 s.start(...)

@@ -30,7 +30,7 @@ local function balllist_msg()
         table.insert( msg, v.y )
         table.insert( msg, v.size )
     end 
-    return msg
+    return cjson.encode(msg)
 end 
 
 
@@ -56,11 +56,12 @@ local function foodlist_msg()
         table.insert( msg, v.x )
         table.insert( msg, v.y )
     end 
-    return msg
+    return cjson.encode(msg)
 end 
 
 -- 广播
 function broadcast(msg)
+    msg = cjson.encode(msg) -- 暂时先这样写！！！
     for i, v in pairs(balls) do 
         s.send(v.node, v.agent, "send", msg)
     end 
@@ -91,6 +92,8 @@ s.resp.enter_scene = function(source, playerid, node, agent)
     balls[playerid] = b
     -- 回应
     local ret_msg = { "enter_scene", 0, "进入游戏" }
+    ret_msg = cjson.encode(ret_msg)
+
     s.send(b.node, b.agent, "send", ret_msg) 
     -- 发战场信息
     s.send(b.node, b.agent, "send", balllist_msg())
