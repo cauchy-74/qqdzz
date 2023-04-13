@@ -30,7 +30,7 @@ function mgrplayer()
 end 
 
 s.resp.reqkick = function(source, playerid, reason) 
-    playerid = tonumber(playerid) -- 转为下标数字
+    local playerid = tonumber(playerid) -- 转为下标数字
 
     local mplayer = players[playerid] 
     if not mplayer then 
@@ -75,7 +75,7 @@ s.resp.reqlogin = function(source, playerid, node, gate)
         mplayer.status = STATUS.LOGOUT 
         s.call(pnode, pagent, "kick") 
         s.send(pnode, pagent, "exit")
-        s.send(pnode, pgate, "send", playerid, { "kick", "顶替下线" }) 
+        s.send(pnode, pgate, "send", playerid, cjson.encode({ "kick", "顶替下线" })) 
         s.call(pnode, pgate, "kick", playerid)
     end 
 
@@ -130,9 +130,31 @@ end
 
 -- 获取玩家在线状态
 s.resp.get_online_id = function(source, id)
+    local id = tonumber(id)
     if players[id] == nil then return false end 
     if players[id].status ~= STATUS.GAME then return false end
     return true
+end
+
+-- 获取玩家所在节点
+s.resp.get_user_node = function(source, id)
+    local id = tonumber(id)
+    if not players[id] then return nil end 
+    return players[id].node
+end
+
+-- 获取玩家所在代理
+s.resp.get_user_agent = function(source, id)
+    local id = tonumber(id)
+    if not players[id] then return nil end
+    return players[id].agent
+end
+
+-- 获取玩家所在网关
+s.resp.get_user_gate = function(source, id)
+    local id = tonumber(id)
+    if not players[id] then return nil end
+    return players[id].gate
 end
 
 s.start(...)

@@ -4,15 +4,22 @@ local skynet = require "skynet"
 local s = require "service"
 
 s.client = {} 
-s.message = {} 
--- [channel_low] = { message } { "add_friend", {} }
-s.gate = nil 
+s.mail_message = {} -- msgJS
+s.mail_count = 0
+s.gate = nil -- resp.sure_gate 登录即认证网关 
+s.node = nil
 
+CHANNEL = {
+    NORMAL = 1,
+    ADD_FRIEND_RESP = 2,
+    ADD_FRIEND_REQ  = 3,
+}
+
+require "mail"
 require "scene" -- 由于这个模块用到了s.client，所以要在s.client定义之后在导入
 require "friend"
 
 s.resp.client = function(source, cmd, msgBS)
-    s.gate = source -- 保存玩家对应gateway的id，后续多文件分模块存放代码。可让agent的所有模块获得该值
     if s.client[cmd] then 
         local ret_msg = s.client[cmd]( msgBS, source )
         if ret_msg then 
@@ -108,6 +115,11 @@ s.resp.send = function(source, msg)
     skynet.send(s.gate, "lua", "send", s.id, msg)
 end
 
+-- 拿到login服务的认证该代理agent的网关信息
+s.resp.sure_gate = function(source, gate)
+    s.gate = gate 
+end
+
 -- 通过时间戳获得天数
 function get_day(timestamp)
     -- os.time(): 1970.1.1 8:00 -> now
@@ -142,6 +154,8 @@ function first_login_day()
 end
 
 s.init = function() 
+    s.node = skynet.getenv("node")
+
     local sql = string.format("select * from UserInfo where user_id = %d;", s.id)
     local res = skynet.call("mysql", "lua", "query", sql)
     local user_info = pb.decode("UserInfo", res[1].data)
@@ -169,7 +183,7 @@ s.init = function()
 
     skynet.fork(function()
         skynet.timeout(10 * 100, function()
-            for channel, v in pairs(s.message) do 
+            for channel, v in pairs(s.mail_message) do 
                 if channel == "add_friend" then 
                     
                 end
@@ -208,7 +222,7 @@ s.init = function()
     -- ps: skynet.send中pack参数不能serialize type function, 两种方式
     --  1. { func = func } -> msg.func()  -- 好像还是不可以
     --  2. string.dump(func) -> load(func)()
-    skynet.send("msgserver", "lua", "subscribe", "friend", { func = func_msg })
+    -- skynet.send("msgserver", "lua", "subscribe", "friend", s.id, { func = func_msg })
 end 
 
 --[[

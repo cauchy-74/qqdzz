@@ -110,6 +110,8 @@ s.client.login = function(fd, msgBS, source)
 
     INFO("[login" .. s.id .. "]: 登录成功 => 用户id：" .. playerid)
 
+    s.send(node, agent, "sure_gate", gate)
+
     return cjson.encode({
         [1] = {msg_type = "login_resp"}, 
         [2] = {success = "true"}, 
