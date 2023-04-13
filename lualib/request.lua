@@ -15,6 +15,10 @@ local messageType = {
     unblock_user = 9, 
     add_friend = 10, 
     del_friend = 11,
+    view_mail = 12,
+    mail_reply = 13,
+    mail_send = 14,
+    is_friend = 15, 
 
     error = 504,
 }
@@ -32,6 +36,10 @@ local messageProto = {
     [messageType.unblock_user] = "UnblockUserRequest", 
     [messageType.add_friend] = "AddFriendRequest", 
     [messageType.del_friend] = "DelFriendRequest", 
+    [messageType.view_mail] = "ViewMailRequest",
+    [messageType.mail_reply] = "MailReplyRequest",
+    [messageType.mail_send] = "MailSendRequest",
+    [messageType.is_friend] = "IsFriendRequest",
 
     [messageType.error] = "ErrorRequest",
 }
