@@ -6,10 +6,10 @@ request = require "request" -- lua模块自定义的使用Command.proto
 
 mysql = require "skynet.db.mysql"
 
--- 添加协议模块的导入
-pb = require "pb"
-pb.loadfile("./proto/Command.pb")
-pb.loadfile("./storage/storage.pb")
+-- 添加协议模块的导入 -- 在request 中导入
+--pb = require "pb"
+--pb.loadfile("./proto/Command.pb")
+--pb.loadfile("./storage/storage.pb")
 
 cjson = require "cjson"
 

@@ -1,6 +1,8 @@
 #!/usr/local/bin/lua
 
-local pb = require "pb"
+pb = require "pb"
+pb.loadfile("./proto/Command.pb")
+pb.loadfile("./storage/storage.pb")
 
 local messageType = {
     login = 0, 
@@ -50,7 +52,7 @@ local mt = {}
 -- para: "login"
 -- return: 0
 function mt:getMessageType(commandType)
-    if not self.messageType[commandType] then 
+    if commandType == nil or self.messageType[commandType] == nil then 
         return self.messageType["error"]
     end
     return self.messageType[commandType]
@@ -80,15 +82,30 @@ function mt:createMessage(messageType, messageTable)
         -- 所以这里不存在的字段:
         -- int32: math.mininteger 极小值 
         -- string: 都置为字符串空"nil"
-        if not messageTable[id + 1] then 
+        -- 总出现的问题：回车后，空缺的地方是一个乱的数字
+        -- 而且这些值类型都是string
+        if messageTable[id + 1] == nil or messageTable[id + 1] == "" then 
+            -- 空就指定值
             if types == "int32" then 
                 message[name] = math.mininteger
             elseif types == "string" then
                 message[name] = "nil"
             end
         else
-            message[name] = messageTable[id + 1]
+            -- 有值，但是可能是一个乱的数字（string类型）
+            -- 分别转类型对齐
+            if types == "int32" then 
+                -- 这里存在的问题：[login 1 123]
+                -- 那么userid 是一个很大的值 408135 这种
+                -- 解决，就是之后userid系统分配。
+                -- 暂时放着
+                message[name] = tonumber(messageTable[id + 1])
+            elseif types == "string" then
+                message[name] = tostring(messageTable[id + 1])
+            end
         end
+        --INFO(messageTable[id + 1]) -- 用于Debug
+        --ERROR(name .. " " .. message[name])
     end
     return message
 end
@@ -100,7 +117,7 @@ function mt:encode(messageTable)
     local message = self:createMessage(messageType, messageTable)
     local bytes = pb.encode(messageType, message)
     local request = {
-        type = self:getMessageType(messageTable), 
+        type = self:getMessageType(messageTable[1]), 
         data = bytes
     }
     return pb.encode("CMD.Request", request)
@@ -110,6 +127,11 @@ end
 -- return: msg, msgtype;  { username = "123",password = "123" }, 504
 function mt:decode(messageType, messageData) 
     local request = pb.decode("CMD.Request", messageData) 
+    --[[
+    if request.type == pb.enum("CMD.Request.CommandType", "ERROR") then 
+        messageType = "CMD.ErrorRequest"
+    end
+    --]]
     local msg = pb.decode(messageType, request.data) 
     return msg, request.type
 end

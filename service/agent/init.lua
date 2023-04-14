@@ -36,15 +36,6 @@ end
 s.client.view = function(msgBS, source)
     local user_info = s.data
 
-    ERROR("user_id: " .. user_info.user_id)
-    ERROR("username: " .. user_info.username)
-    ERROR("password: " .. user_info.password)
-    ERROR("email: " .. user_info.email)
-    ERROR("level: " .. user_info.level)
-    ERROR("coin: " .. user_info.coin)
-    ERROR("experience: " .. user_info.experience)
-    ERROR("last_login_time: " .. user_info.last_login_time)
-
     return cjson.encode({
         [1] = {msg_type = "view_resp"},
         [2] = {success = "true"},
@@ -149,7 +140,7 @@ function timer()
 end
 
 function first_login_day()
-    INFO("【INFO】[agent]：检测到当天首次登录~~~")
+    INFO("[agent]：检测到当天首次登录~~~")
     s.data.experience = s.data.experience + 1 
 end
 

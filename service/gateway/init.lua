@@ -45,6 +45,8 @@ end
 -- "login,101,123" -> cmd=login, msg={"login" "101" "123"}
 local str_unpack = function(msgstr) 
     local msg = {} 
+
+    --[[
     while true do 
         local arg, rest = string.match(msgstr, "(.-) (.*)")
         if arg then 
@@ -55,6 +57,14 @@ local str_unpack = function(msgstr)
             break
         end 
     end 
+    ]]
+
+    -- 2023年4月15日0时15分：更换新方式进行解析指令。
+    -- 书上那个用string.match真垃圾
+    for w in string.gmatch(msgstr, "(%S+)") do 
+        table.insert(msg, w)
+    end
+
     return msg[1], msg
 end 
 
@@ -128,6 +138,12 @@ end
 
 local process_msg = function(fd, msgstr) 
     local cmd, msg = str_unpack(msgstr)
+
+    -- 判断无指令应该放在前面，避免下面的..连接错误。nil。
+    if type(cmd) ~= "string" or cmd == "" or cmd == "nil" then 
+        return 
+    end
+
     INFO("[gateway" .. s.id .. "]：收到来自fd = " .. fd .. "的消息" ..  "【" .. table.concat(msg, ",") .. "】" .. "，执行的指令是" .. "[ " .. cmd .. " ]")
 
     local conn = conns[fd]

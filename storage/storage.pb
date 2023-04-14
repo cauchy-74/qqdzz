@@ -112,18 +112,16 @@ round_time (R	roundTime&
 playerList
 game_status (R
 gameStatusbproto3
-²
-MailInfo.proto"—
+ú
+MailInfo.proto"ß
 MailInfo
-mail_id (	RmailId
-	sender_id (	RsenderId
-receiver_id (	R
-receiverId
-
-mail_title (	R	mailTitle!
-mail_content (	RmailContent
-	mail_type (RmailType
+mail_id (RmailId
+from (Rfrom
+to (Rto
+title (	Rtitle
+message (	Rmessage
+channel (Rchannel
 is_read (RisRead
 is_rewarded (R
-isRewarded
-	send_time	 (RsendTimebproto3
+isRewarded
+time	 (	Rtimebproto3

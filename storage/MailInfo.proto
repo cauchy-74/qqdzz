@@ -1,13 +1,13 @@
 syntax = "proto3";
 
 message MailInfo {
-    string mail_id = 1;  // 邮件ID
-    string sender_id = 2;  // 发件人ID
-    string receiver_id = 3;  // 收件人ID
-    string mail_title = 4;  // 邮件标题
-    string mail_content = 5;  // 邮件内容
-    int32 mail_type = 6;  // 邮件类型（1：系统邮件，2：好友邮件）
+    int32 mail_id = 1;  // 邮件ID
+    int32 from = 2;  // 发件人ID
+    int32 to = 3;  // 收件人ID
+    string title = 4;  // 邮件标题
+    string message = 5;  // 邮件内容
+    int32 channel = 6;  // 邮件类型
     bool is_read = 7;  // 是否已读
     bool is_rewarded = 8;  // 是否已领取奖励
-    int32 send_time = 9;  // 发送时间
+    string time = 9;  // 发送时间
 }

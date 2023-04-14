@@ -51,7 +51,6 @@ s.client.register = function(fd, msgBS, source)
 end
 
 s.client.login = function(fd, msgBS, source) 
-
     local msg = request:decode("CMD.LoginRequest", msgBS) -- { username = "", password = "", userid =  }
 
     local sql = string.format("select * from UserInfo where user_id = %d;", msg.userid)
