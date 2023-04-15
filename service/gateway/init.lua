@@ -255,8 +255,8 @@ s.resp.send_by_fd = function(source, fd, msgJS)
     end 
 
     -- local buff = str_pack(msg[1], msgJS)
-    INFO("[gateway" .. s.id .. "]：发送消息【" .. msgJS .. "】给fd = " .. fd .. "的客户端")
-    socket.write(fd, msgJS)
+    INFO("[gateway" .. s.id .. "]：发送消息【" .. tostring(msgJS) .. "】给fd = " .. fd .. "的客户端")
+    socket.write(fd, tostring(msgJS))
     socket.write(fd, '\n')
 end 
 

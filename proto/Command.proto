@@ -16,10 +16,11 @@ message Request {
         UNBLOCK_USER = 9;
         ADD_FRIEND = 10;
         DEL_FRIEND = 11;
-        VIEW_MAIL = 12;
+        MAIL_VIEW = 12;
         MAIL_REPLY = 13;
         MAIL_SEND = 14;
         IS_FRIEND = 15;
+        MAIL_DEL = 16;
 
         ERROR = 504;
     }
@@ -159,7 +160,7 @@ message SureFriendResponse {
 }
 
 // 查看邮件
-message ViewMailRequest {
+message MailViewRequest {
     int32 mail_id = 1; // nil or 0: all; 1~: mailid
 }
 
@@ -180,4 +181,9 @@ message MailSendRequest {
 // 询问是否是好友
 message IsFriendRequest {
     int32 friend_id = 1;  
+}
+
+// 删除邮件
+message MailDelRequest {
+    int32 mail_id = 1;
 }

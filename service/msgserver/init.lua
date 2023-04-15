@@ -93,16 +93,25 @@ local function update(dt)
     end
 end
 
-local mails = {} 
-local mail_count = 0
+s.mails = {} 
+s.mail_count = 0 -- 需要在服务启动时更新为max(id)
 
 s.resp.recv_mail = function(source, msgJS)
-    mail_count = mail_count + 1
-    mails[mail_count] = msgJS -- 插进缓存表mails
+    s.mail_count = s.mail_count + 1
+    local msg = cjson.decode(msgJS)
+    msg.user_id = msg.from
+    msg.mail_id = tonumber(s.mail_count)  -- 给邮件打上唯一标识mail_id
+    msg.is_read = false 
+    msg.is_rewarded = false 
+    msg.title = ""
+    local msgJS = cjson.encode(msg)
+
+    s.mails[s.mail_count] = msgJS -- 插进缓存表mails
 
     local msg = cjson.decode(msgJS)
 
-    local sql = string.format("insert into MailInfo (`from`, `to`, `time`, `channel`, `content`) values (%d, %d, '%s', %d, %s);", msg.from, msg.to, msg.time, msg.channel, mysql.quote_sql_str(msg.message))
+    -- 数据库中的id应该也同步为这里的s.mail_count
+    local sql = string.format("insert into MailInfo (`from`, `to`, `time`, `channel`, `message`) values (%d, %d, '%s', %d, %s);", msg.from, msg.to, msg.time, msg.channel, mysql.quote_sql_str(msg.message))
     local res = skynet.call("mysql", "lua", "query", sql) -- 插进mysql
 
     if not res then 
@@ -114,15 +123,16 @@ end
 local function mail_cache_loop()
     local del_index_record = {} -- 记录要删除的下标邮件
 
-    for id, msgJS in pairs(mails) do 
+    for id, msgJS in pairs(s.mails) do 
         local msg = cjson.decode(msgJS) 
         local to = msg.to
 
         local online = skynet.call("agentmgr", "lua", "get_online_id", to)
         if online then -- 如果在线
+            -- 获取用户所在节点，代理
             local node = skynet.call("agentmgr", "lua", "get_user_node", to) 
             local agent = skynet.call("agentmgr", "lua", "get_user_agent", to) 
-
+             
             s.send(node, agent, "recv_mail", msgJS)
 
             -- 删除mysql中的这封邮件
@@ -135,7 +145,7 @@ local function mail_cache_loop()
 
     -- 删除已经发送的邮件
     for _, v in pairs(del_index_record) do 
-        mails[v] = nil
+        s.mails[v] = nil
     end
     del_index_record = nil
 end
@@ -149,6 +159,15 @@ local function loop()
 end
 
 s.init = function()
+    -- 邮件id的置位：MailInfo中id的最大值
+    local sql = string.format("select MAX(id) from MailInfo;") 
+    local result = skynet.call("mysql", "lua", "query", sql)
+    for i, row in ipairs(result) do
+        for column_name, column_value in pairs(row) do 
+            s.mail_count = tonumber(column_value)
+        end
+    end
+
     skynet.fork(loop) 
 end
 

@@ -9,26 +9,17 @@ s.client.add_friend = function(msgBS)
     local msg = request:decode("CMD.AddFriendRequest", msgBS) 
     msg.user_id = s.id 
 
-    --[[
-    local online = skynet.call("agentmgr", "lua", "get_online_id", msg.friend_id)
-
-    if online then -- 对方在线
-        local node = skynet.call("agentmgr", "lua", "get_user_node", msg.friend_id) 
-        local agent = skynet.call("agentmgr", "lua", "get_user_agent", msg.friend_id)
-        ERROR("node = " .. node .. " agent = " .. agent)
-        if node and agent then
-            s.send(node, agent, "reqaddfriend", pb.encode("CMD.AddFriendRequest", msg))
-        end
-    else -- 对方不在线 
-         
+    local is_friend_msgBS = request:encode({"is_friend", msg.friend_id})
+    if s.client.is_friend(is_friend_msgBS) then 
+        return nil
     end
-    ]]
+
     local t = {
         from = s.id, 
         to = msg.friend_id, 
         message = msg.message, 
         time = os.date("%Y-%m-%d %H:%M:%S", os.time()),
-        channel = CHANNEL.ADD_FRIEND_REQ
+        channel = MAIL_CHANNEL.ADD_FRIEND_REQ
     }  
     local msgJS = cjson.encode(t) 
     skynet.send("msgserver", "lua", "recv_mail", msgJS)
@@ -38,9 +29,19 @@ end
 -- 删除好友
 s.client.del_friend = function(msgBS)
     local msg = request:decode("CMD.DelFriendRequest", msgBS)
-    local data = { type = "del_friend", from = s.id, to = msg.friend_id, msg = "del friend"}
-    skynet.send("msgserver", "lua", "publish", "friend", data)
-    return nil
+
+    local is_friend_msgBS = request:encode({"is_friend", msg.friend_id})
+    if not s.client.is_friend(is_friend_msgBS) then 
+        return nil
+    end
+
+    local sql = string.format("delete from FriendInfo where user_id = %d and friend_id = %d;", s.id, msg.friend_id)
+    skynet.send("mysql", "lua", "query", sql)
+    local sql = string.format("delete from FriendInfo where user_id = %d and friend_id = %d;", msg.friend_id, s.id)
+    skynet.send("mysql", "lua", "query", sql)
+
+    s.resp.send(nil, cjson.encode({ "OK~, Be a stranger~" }))
+    return nil 
 end
 
 -- 询问是否是好友
@@ -51,7 +52,12 @@ s.client.is_friend = function(msgBS)
     local sql = string.format("select * from FriendInfo where user_id = %d and friend_id = %d;", s.id, friend_id)
     local res = skynet.call("mysql", "lua", "query", sql)
     if res and res[1] then 
-        s.send(s.node, s.gate, "send", s.id, cjson.encode({ "yes, is friend!" }))
+        -- s.send(s.node, s.gate, "send", s.id, cjson.encode({ "yes, is friend!" }))
+        s.resp.send(nil, cjson.encode({ "You are friend!" }))
+        return true
+    else 
+        s.resp.send(nil, cjson.encode({ "No, You are not be friend~" }))
+        return false
     end
 end
 
@@ -63,7 +69,7 @@ s.resp.reqaddfriend = function(source, msgBS)
     s.send(s.node, s.gate, "send", s.id, cjson.encode({ "receive a new mail~~~" }))
 
     local msgJS = cjson.encode({
-        [1] = { mail_type = CHANNEL.ADD_FRIEND_REQ },
+        [1] = { mail_type = MAIL_CHANNEL.ADD_FRIEND_REQ },
         [2] = { from = msg.user_id },
         [3] = { title = "add_friend" },
         [4] = { content = msg.message },

@@ -4,16 +4,8 @@ local skynet = require "skynet"
 local s = require "service"
 
 s.client = {} 
-s.mail_message = {} -- msgJS
-s.mail_count = 0
 s.gate = nil -- resp.sure_gate 登录即认证网关 
 s.node = nil
-
-CHANNEL = {
-    NORMAL = 1,
-    ADD_FRIEND_RESP = 2,
-    ADD_FRIEND_REQ  = 3,
-}
 
 require "mail"
 require "scene" -- 由于这个模块用到了s.client，所以要在s.client定义之后在导入
@@ -22,7 +14,7 @@ require "friend"
 s.resp.client = function(source, cmd, msgBS)
     if s.client[cmd] then 
         local ret_msg = s.client[cmd]( msgBS, source )
-        if ret_msg then 
+        if ret_msg and type(ret_msg) ~= "boolean" then 
             skynet.send(source, "lua", "send", s.id, ret_msg)
         end 
     else 
@@ -76,7 +68,6 @@ s.client.save_data = function(msgBS, source)
         })
     end
 
-
     return cjson.encode({
         [1] = {msg_type = "save_data_resp"}, 
         [2] = {success = "true"},
@@ -91,7 +82,6 @@ s.client.exit = function(msgBS, source)
 end
 
 
-
 -- 客户端掉线
 s.resp.kick = function(source) 
     s.client.leave_scene(nil)  -- 向场景服务请求退出
@@ -102,8 +92,8 @@ s.resp.exit = function(source)
     skynet.exit()
 end 
 
-s.resp.send = function(source, msg) 
-    skynet.send(s.gate, "lua", "send", s.id, msg)
+s.resp.send = function(source, msgJS) 
+    skynet.send(s.gate, "lua", "send", s.id, msgJS)
 end
 
 -- 拿到login服务的认证该代理agent的网关信息
@@ -150,7 +140,8 @@ s.init = function()
     local sql = string.format("select * from UserInfo where user_id = %d;", s.id)
     local res = skynet.call("mysql", "lua", "query", sql)
     local user_info = pb.decode("UserInfo", res[1].data)
-
+    
+    -- 玩家信息初始化到cache: s.data
     s.data = {
         user_id = user_info.user_id,
         username = user_info.username,
@@ -172,50 +163,30 @@ s.init = function()
         first_login_day()
     end
 
-    skynet.fork(function()
-        skynet.timeout(10 * 100, function()
-            for channel, v in pairs(s.mail_message) do 
-                if channel == "add_friend" then 
-                    
-                end
-            end
-        end)
-    end)
+    -- 玩家邮件初始化cache: s.mail_message, s.mail_count
+    local sql = string.format("select * from UserMail where user_id = %d;", s.id)
+    local result = skynet.call("mysql", "lua", "query", sql)
 
-
-    local func = function(channel, message)
-        if channel == "friend" and message.type == "add_friend" then 
-            if message.friend_id == s.id then 
-                table.insert(s.message[message.type], message)
-            end
-        elseif channel == "friend" and message.type == "del_friend" then 
-            if message.friend_id == s.id then 
-                table.insert(s.message[message.type], message) 
-            end
-        elseif channel == "friend" and message.type == "sure_friend" then 
-            if message.friend_id == s.id then 
-                if message.message == "yes" then 
-                    ERROR("[agent]：" .. "对方已确认添加您为好友") 
-                    local sql1 = string.format("insert into FriendInfo (user_id, friend_id, chat_msg) values (%d, %d, %s);", tonumber(s.id), tonumber(message.user_id), {})
-                    local sql2 = string.format("insert into FriendInfo (user_id, friend_id, chat_msg) values (%d, %d, %s);", tonumber(message.user_id), tonumber(s.id), {})
-                    skynet.send("mysql", "lua", "query", sql1)
-                    skynet.send("mysql", "lua", "query", sql2)
-                elseif message.message == "no" then 
-                    ERROR("[agent]：" .. "对方已拒绝添加您为好友") 
-                end
-            end
-        end
+    for i, v in pairs(result) do 
+        local msgJS = cjson.encode(v)
+        -- 一个问题就是：is_read, is_rewarded存进mysql 
+        -- 会是0,而不是false; 可以考虑在这里修改，暂时不管
+        table.insert(s.mail_message, msgJS)
+        s.mail_count = s.mail_count + 1
     end
-    local func_msg = string.dump(func)
-    
-    -- 订阅频道
+
+    -- 订阅频道 -- 对于加好友功能，且弃用
     -- 对上线用户注册 friend channel 回调
     -- ps: skynet.send中pack参数不能serialize type function, 两种方式
     --  1. { func = func } -> msg.func()  -- 好像还是不可以
     --  2. string.dump(func) -> load(func)()
+    -- 
+    -- local func_msg = string.dump(func)
     -- skynet.send("msgserver", "lua", "subscribe", "friend", s.id, { func = func_msg })
+    
 end 
 
+s.start(...)
 --[[
 --      agentmgr: s.call(node, "nodemgr", "newservice", "agent", "agent", playerid)
 --
@@ -223,4 +194,3 @@ end
 --
 --      agent: start("agent", playerid) -> s.name="agent", s.id=playerid
 --]]
-s.start(...)

@@ -3,6 +3,15 @@
 local skynet = require "skynet"
 local s = require "service"
 
+s.mail_message = {} -- msgJS
+s.mail_count = 0
+
+MAIL_CHANNEL = {
+    NORMAL = 1, 
+    ADD_FRIEND_RESP = 2, 
+    ADD_FRIEND_REQ = 3,
+}
+
 -- 获取邮件表大小
 local function get_mail_count()
     local cnt = 0
@@ -30,15 +39,15 @@ local function remake_message()
 end
 
 -- 查看邮件
--- view_mail 0/1
-s.client.view_mail = function(msgBS)
-    local msg = request:decode("CMD.ViewMailRequest", msgBS)
-    local mail_id = tonumber(msg.mail_id) -- 查看的邮件id, 此id非数据库中的唯一标识id
+-- mail_view 0/1
+s.client.mail_view = function(msgBS)
+    local msg = request:decode("CMD.MailViewRequest", msgBS)
+    local mail_id = tonumber(msg.mail_id) -- 查看的邮件id, 此id非数据库中的唯一标识mail_id
     -- 这是动态的id，cache中
 
     remake_message()
 
-    -- 默认view_mail不带参数or是0,就是查看所有邮件
+    -- 默认mail_view不带参数or是0,就是查看所有邮件
     -- 这种全局查看，判定为打开邮件系统。作为供选择的界面，不参与查看具体那一封邮件
     if mail_id == nil or mail_id == 0 then 
         for id, msgJS in pairs(s.mail_message) do
@@ -49,24 +58,11 @@ s.client.view_mail = function(msgBS)
         -- 具体查看某邮件，需要修改当前邮件的属性。is_read, is_rewarded
         
         local mail = cjson.decode(s.mail_message[mail_id]) -- 拿到这封邮件
-        local mail_id = mail.mail_id -- 拿到邮件的mysql中的唯一标识id，即random的id
+        local mail_id = mail.mail_id
         mail.is_read = true 
         mail.is_rewarded = true -- 默认查看就算领取奖励
 
-        local msgBS = pb.encode("MailInfo", mail)
-        local sql = string.format("select * from UserMail where user_id = %d;", s.id)
-        local result = s.call("mysql", "lua", "query", sql) 
-        for i, v in pairs(result) do 
-            if pb.decode("MailInfo", v).mail_id == mail_id then 
-                local sql = string.format("delete from UserMail where = %s;", v)
-                s.send("mysql", "lua", "query", sql) 
-
-                local sql = string.format("insert into UserMail values(%d, %s);", s.id, mysql.quote_sql_str(msgBS))
-                s.send("mysql", "lua", "query", sql) 
-                break
-            end
-        end
-        s.send(s.node, s.gate, "send", s.id, mail)
+        s.send(s.node, s.gate, "send", s.id, cjson.encode(mail))
     end
 
     return nil
@@ -77,16 +73,17 @@ end
 s.client.mail_send = function(msgBS)
     local msg = request:decode("CMD.MailSendRequest", msgBS)  
     if not msg.channel then 
-        msg.channel = CHANNEL.NORMAL 
+        msg.channel = MAIL_CHANNEL.NORMAL 
     end
-    if not msg.from then 
+
+    if not msg.from then -- 伪造发邮件者
         msg.from = tonumber(s.id)
     end
     
     msg.time = os.date("%Y-%m-%d %H:%M:%S", os.time())
     local msgJS = cjson.encode(msg)
     skynet.send("msgserver", "lua", "recv_mail", msgJS) 
-    return nil
+    return true
 end
 
 -- 邮件回复用法：{ mail_reply mail_id message }
@@ -108,10 +105,10 @@ s.client.mail_reply = function(msgBS)
     }
     
     -- 对消息类型做判断
-    if mail.channel == CHANNEL.NORMAL then 
-        t.channel = CHANNEL.NORMAL
-    elseif mail.channel == CHANNEL.ADD_FRIEND_REQ then 
-        t.channel = CHANNEL.ADD_FRIEND_RESP 
+    if mail.channel == MAIL_CHANNEL.NORMAL then 
+        t.channel = MAIL_CHANNEL.NORMAL
+    elseif mail.channel == MAIL_CHANNEL.ADD_FRIEND_REQ then 
+        t.channel = MAIL_CHANNEL.ADD_FRIEND_RESP 
         mail_friend_handle(cjson.encode(t))
     end
 
@@ -120,21 +117,41 @@ s.client.mail_reply = function(msgBS)
     return nil
 end
 
+-- 用户删除邮件 0/1 
+s.client.mail_del = function(msgBS) 
+    local msg = request:decode("CMD.MailDelRequest", msgBS) 
+    local cache_mail_id = tonumber(msg.mail_id)
+
+    -- 删除全部邮件
+    if cache_mail_id == nil or cache_mail_id == 0 then 
+        local sql = string.format("delete from UserMail where user_id = %d;", s.id)
+        skynet.send("mysql", "lua", "query", sql)
+        
+        s.mail_count = 0 
+        s.mail_message = nil 
+        s.mail_message = {}
+        return true
+    end
+
+    local mail = cjson.decode(s.mail_message[cache_mail_id])
+    local mysql_mail_id = tonumber(mail.mail_id)
+
+    local sql = string.format("delete from UserMail where user_id = %d and mail_id = %d;", s.id, mysql_mail_id)
+    skynet.send("mysql", "lua", "query", sql)
+
+    s.mail_count = s.mail_count - 1
+    s.mail_message[cache_mail_id] = nil 
+    return true
+end
+
 -- 用户的收邮件回调
 s.resp.recv_mail = function(source, msgJS)
     ERROR("[mail]：用户" .. s.id .. "收到新邮件~")
     local msg = cjson.decode(msgJS)
-    msg.mail_id = math.random(1, 999999999); -- 随机一个邮件唯一标识id，用于数据库的存储，能够鉴定邮件是否匹配(cache and mysql)
-    -- 问题就是，邮件id重复，无关紧要，之后处理。这里随机值挺大的。
-    msg.is_read = false 
-    msg.is_rewarded = false 
-
-    local msgJS = cjson.encode(msg)
     table.insert(s.mail_message, msgJS) -- 插入cache
 
-    ------------------------------
-    local msgBS = pb.encode("MailInfo", msg)
-    local sql = string.format("insert into UserMail values(%d, %s);", s.id, mysql.quote_sql_str(msgBS))
+    local sql = string.format("insert into UserMail (`user_id`, `mail_id`, `from`, `to`, `title`, `message`, `channel`, `is_read`, `is_rewarded`, `time`) values(%d, %d, %d, %d, %s, %s, %d, %s, %s, '%s');", 
+    msg.user_id, msg.mail_id, msg.from, msg.to, mysql.quote_sql_str(msg.title), mysql.quote_sql_str(msg.message), msg.channel, msg.is_read, msg.is_rewarded, msg.time)
     skynet.send("mysql", "lua", "query", sql) -- 插入 mysql
 
     local JS = cjson.encode {
