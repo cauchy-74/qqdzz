@@ -10,6 +10,7 @@ s.node = nil
 require "mail"
 require "scene" -- 由于这个模块用到了s.client，所以要在s.client定义之后在导入
 require "friend"
+require "chat"
 
 s.resp.client = function(source, cmd, msgBS)
     if s.client[cmd] then 
@@ -175,14 +176,18 @@ s.init = function()
         s.mail_count = s.mail_count + 1
     end
 
-    -- 订阅频道 -- 对于加好友功能，且弃用
-    -- 对上线用户注册 friend channel 回调
+
+    -- 订阅频道
     -- ps: skynet.send中pack参数不能serialize type function, 两种方式
     --  1. { func = func } -> msg.func()  -- 好像还是不可以
     --  2. string.dump(func) -> load(func)()
-    -- 
-    -- local func_msg = string.dump(func)
-    -- skynet.send("msgserver", "lua", "subscribe", "friend", s.id, { func = func_msg })
+
+    local game_center_func = function(channel, message)
+        s.resp.send(nil, cjson.encode({ message })) 
+    end
+
+    local func_msg = string.dump(game_center_func)
+    skynet.send("msgserver", "lua", "subscribe", "game_center", { func = func_msg })
     
 end 
 

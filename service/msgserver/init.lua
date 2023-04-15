@@ -3,33 +3,24 @@
 local skynet = require "skynet"
 local s = require "service"
  
+local subscribe_last_time = os.date("%Y-%m-%d %H:%M:%S", os.time())
 local channels = {}
 
-s.resp.subscribe = function(source, channel, user_id, func_table)
-    ERROR("[msgserver]：subscribe ==>> " .. channel)
-    -- local sql = string.format("insert into Message (channel) values (%s);", channel)
-    -- skynet.send("mysql", "lua", "query", sql)
-    -- 感觉这里不需要插入，而且表的字段三not null。这样插不进去
+-- 由于service封装，参数不能是function
+s.resp.subscribe = function(source, channel, func_table)
+    INFO("[msgserver]：subscribe ==>> " .. channel)
 
     if not channels[channel] then 
         channels[channel] = {} 
     end
 
-    if not channels[channel][user_id] then 
-        channels[channel][user_id] = {} 
-    end
-
     local handler = load(func_table.func)
-
-    table.insert(channels[channel][tonumber(user_id)], handler)
+    table.insert(channels[channel], handler)
     return true
 end
 
-s.resp.unsubscribe = function(source, channel, user_id, func_table)
-    ERROR("[msgserver]：unsubscribe ==>> " .. channel)
-
-    local sql = string.format("delete from Message channel = %s;", channel)
-    skynet.send("mysql", "lua", "query", sql)
+s.resp.unsubscribe = function(source, channel, func_table)
+    INFO("[msgserver]：unsubscribe ==>> " .. channel)
 
     local handler = load(func_table.func)
 
@@ -51,47 +42,43 @@ end
 -- 可以编码成string在插入，！要用！mysql.quote_sql_str
 -- message = { type; from; to; msg; other; }
 s.resp.publish = function(source, channel, message)
-    ERROR("[msgserver]：publish ==>> " .. channel)
-    local sql = string.format("insert into Message (channel, message, time) values (%s, %s, '%s');", mysql.quote_sql_str(channel), mysql.quote_sql_str(cjson.encode(message)), os.date("%Y-%m-%d %H:%M:%S", os.time()))
+    INFO("[msgserver]：publish ==>> " .. channel)
 
+    local time = os.date("%Y-%m-%d %H:%M:%S", os.time())
+
+    -- 所有消息先统一存在Message表中，之后分类
+    local sql = string.format("insert into Message (channel, message, time) values (%s, %s, '%s');", channel, mysql.quote_sql_str(message), time)
     skynet.send("mysql", "lua", "query", sql)
+
+    return true
 end
 
-local function msg_user_to_user(channel, message)
-    local from = tonumber(message.from)
-    local to   = tonumber(message.to) 
-    local result = skynet.call("agentmgr", "lua", "get_online_id", to)
-    if result and channels[channel][to] then 
-        local handler = channels[channel][to]
-        handler(channel, message)
-    else 
-
-    end
-end
-
+-- 订阅的更新发布。
+-- 目前想法：维护一个上一次的发布时间
+-- 每次选择该段时间内的新消息进行发送
 local function update(dt)
-    ERROR("[msgserver]：update ~~~~ ")
-    local str_time = os.date("%Y-%m-%d %H:%M:%S", os.time())
-    local sql = string.format("select * from Message where time >= '%s';", str_time) -- 日期格式数据用''
+    INFO("[msgserver]：update ~~~~ ")
+    local now = os.date("%Y-%m-%d %H:%M:%S", os.time())
+    local sql = string.format("select * from Message where time >= '%s' and time <= '%s';", subscribe_last_time, now) 
     local result = skynet.call("mysql", "lua", "query", sql)
 
-    for _, row in ipairs(result) do 
-        local channel = row.channel
-        local message = row.message 
-        
-        local from = tonumber(message.from)
-        local to   = tonumber(message.to) 
-        
-        if from ~= 0 then -- 用户消息
-            if to ~= 0 then -- 发给用户
-                msg_user_to_user(channel, message)
-            else  -- 发给系统
+    if result then 
+        for _, row in ipairs(result) do 
+            local channel = row.channel
+            local message = row.message 
+            
+            for _, handler in pairs(channels[channel]) do
+                handler(channel, message) 
             end
-        elseif from == 0 then -- 系统消息
-            -- 
         end
     end
+
+    subscribe_last_time = now
 end
+
+-- 订阅者模式
+-----------------------------------------------
+-- 邮件系统
 
 s.mails = {} 
 s.mail_count = 0 -- 需要在服务启动时更新为max(id)
@@ -150,12 +137,19 @@ local function mail_cache_loop()
     del_index_record = nil
 end
 
-local function loop() 
+local function mail_loop() 
     -- 基于时间轮的定时器，单位10毫秒
     skynet.timeout(3 * 100, function() -- 10s
         mail_cache_loop()
-        loop()
+        mail_loop()
     end) 
+end
+
+local function subscribe_loop() 
+    skynet.timeout(2 * 100, function()
+        update()
+        subscribe_loop() 
+    end)
 end
 
 s.init = function()
@@ -168,7 +162,8 @@ s.init = function()
         end
     end
 
-    skynet.fork(loop) 
+    skynet.fork(mail_loop) 
+    skynet.fork(subscribe_loop)
 end
 
 s.start(...)

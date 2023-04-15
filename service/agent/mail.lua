@@ -76,7 +76,8 @@ s.client.mail_send = function(msgBS)
         msg.channel = MAIL_CHANNEL.NORMAL 
     end
 
-    if not msg.from then -- 伪造发邮件者
+    -- 如果from 存在 即伪造发邮件者
+    if not msg.from or msg.from == 0 then 
         msg.from = tonumber(s.id)
     end
     

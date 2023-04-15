@@ -127,7 +127,9 @@ end
 s.resp.client = function(source, fd, cmd, msgBS) 
     if s.client[cmd] then 
         local ret_msg = s.client[cmd](fd, msgBS, source)
-        skynet.send(source, "lua", "send_by_fd", fd, ret_msg)
+        if ret_msg and type(ret_msg) ~= "boolean" then 
+            skynet.send(source, "lua", "send_by_fd", fd, ret_msg)
+        end
     else 
         INFO("[login" .. s.id .. "]: resp.client中找不到[ " .. cmd .. " ]的方法")
     end 

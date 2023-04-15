@@ -10,7 +10,7 @@ message Request {
         LEAVE_SCENE = 3;
         CREATE_SCENE = 4; 
         END_GAME = 5; 
-        CHAT_MESSAGE = 6; 
+        CHAT = 6; 
         INVITE_TO_GAME = 7;
         BLOCK_USER = 8;
         UNBLOCK_USER = 9;
@@ -93,12 +93,13 @@ message EndGameResponse {
 }
 
 // 7. 聊天消息
-message ChatMessageRequest {
-    string sceneid = 1;
+message ChatRequest {
+    int32 obj_id = 1; // 聊天对象，0大厅，1～好友
     string message = 2;
+    string channel = 3; // 设置聊天频道
 }
 
-message ChatMessageResponse {
+message ChatResponse {
     string message = 1;
 }
 
