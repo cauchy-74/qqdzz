@@ -167,7 +167,7 @@ local function mail_loop()
 end
 
 local function subscribe_loop() 
-    skynet.timeout(131, function()
+    skynet.timeout(237, function()
         update()
         subscribe_loop() 
     end)

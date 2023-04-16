@@ -6,26 +6,30 @@
 
 |    通信协议    |                 基本语法                  |                           功能&bug                           |
 | :------------: | :---------------------------------------: | :----------------------------------------------------------: |
-|    注册协议    |   【register username password userid】   |                    用户ID目前需要自己指定                    |
-|    登录协议    | 【login username password userid email】  |        用户名不需要匹配，但密码和ID匹配；邮箱可选择写        |
-|    查看指令    |                 【view】                  |                         显示玩家信息                         |
-|    工作指令    |                 【work】                  |                            金币+1                            |
-|   加好友指令   |          【add_friend friendid】          |                            加好友                            |
-|   删好友指令   |          【del_friend friendid】          |                            删好友                            |
-| 判断是好友指令 |          【is_friend friendid】           |                        判断是不是好友                        |
-|  查看邮件指令  |           【mail_view mailid】            | 查看邮件；mailid是0或不输入则是查看全部邮件（查看单封邮件前最好先执行） |
-|  发送邮件指令  | 【mail_send userid message channel from】 | 发送邮件；对方ID和消息内容，后两参数默认（channel：0普通消息，1加好友消息）；from：该参数可以伪造发送者ID？ |
-
-|   通信协议   |           基本语法            |                           功能&bug                           |
-| :----------: | :---------------------------: | :----------------------------------------------------------: |
-| 邮件回复指令 | 【mail_reply mailid message】 | 回复指定邮件（目前只对好友）；需要先查看全部邮件，然后使用邮件ID指定回复；例如：收到加好友邮件，回复message是yes，则能成功加上 |
-| 断线重连协议 |  【reconnect userid token】   | 令牌是最近一次登录（存在挤号，后来居上），服务器返回的token值 |
-| 进入游戏协议 |    【enter_scene sceneid】    |         场景ID可选择写（1001 1002）；默认会随机进入          |
-| 退出游戏协议 |    【leave_scene sceneid】    |                        场景ID可选择写                        |
-| 数据保存指令 |         【save_data】         |                       实时保存玩家数据                       |
-|   退出指令   |           【exit】            |                           退出游戏                           |
+|    注册    |   【register username password user_id】   |                    用户ID目前需要自己指定，且 ID >= 1                    |
+|    登录    | 【login username password user_id email】 |        用户名不需要匹配，但密码和ID匹配；邮箱可选择写        |
+|    查看    |                 【view】                  |                         显示玩家信息                         |
+|    工作    |                 【work】                  |                            金币+1                            |
+|          |                                            |                                                              |
+|  加好友  |          【add_friend friend_id】          |                            加好友                            |
+|  删好友  |          【del_friend friend_id】          |                            删好友                            |
+| 好友列表 |              【list_friend】               |                         查看好友列表                         |
+|          |                                            |                                                              |
+| 查看邮件 |           【mail_view mail_id】            | 查看邮件；mailid是0或不输入则是查看全部邮件（查看单封邮件前最好先执行） |
+| 发送邮件 | 【mail_send user_id message channel from】 | 发送邮件；对方ID和消息内容，后两参数默认（channel：0普通消息，1加好友消息）；from：该参数可以伪造发送者ID？ |
+| 邮件回复 |       【mail_reply mail_id message】       | 回复指定邮件；需要先查看全部邮件，然后使用邮件ID指定回复；例如：收到加好友邮件，回复message是yes，则能成功加上 |
+| 邮件删除 |            【mail_del mail_id】            |    删除邮件；（mail_id：0或空 删除全部邮件，非0其它邮件）    |
+|          |                                            |                                                              |
+|   聊天   |          【chat obj_id message】           |     指定对象聊天；（obj_id：0大厅/游戏房间，非0好友ID）      |
+| 聊天列表 | 【list_chat list_type】 | 查看聊天列表；（list_type：0大厅，非0好友ID） |
 |              |                               |                                                              |
-|              |                               |                                                              |
+| 断线重连 | 【reconnect user_id token】 | 令牌是最近一次登录（存在挤号，后来居上），服务器返回的token值 |
+| 进入游戏 |          【enter_scene scene_id】          |         场景ID可选择写（1001 1002）；默认会随机进入          |
+| 退出游戏 |          【leave_scene scene_id】          |                        场景ID可选择写                        |
+| 数据保存 |               【save_data】                |                       实时保存玩家数据                       |
+|   退出   |                  【exit】                  |                           退出游戏                           |
+|          |                                            |                                                              |
+| 管理员 | 【stop】 | 终止服务器；？未知？端口登入【login】 |
 |              |                               |                                                              |
 
 
