@@ -21,6 +21,8 @@ message Request {
         MAIL_SEND = 14;
         IS_FRIEND = 15;
         MAIL_DEL = 16;
+        LIST_FRIEND = 17;
+        LIST_CHAT = 18;
 
         ERROR = 504;
     }
@@ -187,4 +189,14 @@ message IsFriendRequest {
 // 删除邮件
 message MailDelRequest {
     int32 mail_id = 1;
+}
+
+// 查看好友列表
+message ListFriendRequest {
+    int32 list_type = 1; // 好友列表分类型，家人.... 
+}
+
+// 查看聊天列表 
+message ListChatRequest {
+    int32 list_type = 1; // 大厅聊天；好友聊天
 }

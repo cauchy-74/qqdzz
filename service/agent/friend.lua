@@ -59,6 +59,17 @@ s.client.is_friend = function(msgBS)
     return false
 end
 
+-- 好友列表查看
+s.client.list_friend = function(msgBS)
+    local sql = string.format("select * from FriendInfo where user_id = %d;", s.id)
+    local result = skynet.call("mysql", "lua", "query", sql)
+    if result then 
+        for _, row in ipairs(result) do
+            s.resp.send(nil, cjson.encode({ row.friend_id }))
+        end
+    end
+end
+
 -- 先放着
 s.resp.reqaddfriend = function(source, msgBS) 
     local msg = pb.decode("CMD.AddFriendRequest", msgBS)

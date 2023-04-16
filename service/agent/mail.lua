@@ -110,7 +110,7 @@ s.client.mail_reply = function(msgBS)
         t.channel = MAIL_CHANNEL.NORMAL
     elseif mail.channel == MAIL_CHANNEL.ADD_FRIEND_REQ then 
         t.channel = MAIL_CHANNEL.ADD_FRIEND_RESP 
-        mail_friend_handle(cjson.encode(t))
+        mail_friend_handle(cjson.encode(t)) -- 调度friend模块的处理邮件好友请求
     end
 
     local msgJS = cjson.encode(t)

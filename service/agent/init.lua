@@ -4,6 +4,7 @@ local skynet = require "skynet"
 local s = require "service"
 
 s.client = {} 
+s.callbackFunc = {} -- [index_callbackFunc] = callback_func
 s.gate = nil -- resp.sure_gate 登录即认证网关 
 s.node = nil
 
@@ -102,6 +103,15 @@ s.resp.sure_gate = function(source, gate)
     s.gate = gate 
 end
 
+-- 订阅模式下，回调索引映射的函数
+s.resp.callback = function(source, index, channel, message)
+    if not index or index == nil then 
+        return nil
+    end
+    s.callbackFunc[index](channel, message)
+end
+
+
 -- 通过时间戳获得天数
 function get_day(timestamp)
     -- os.time(): 1970.1.1 8:00 -> now
@@ -133,6 +143,25 @@ end
 function first_login_day()
     INFO("[agent]：检测到当天首次登录~~~")
     s.data.experience = s.data.experience + 1 
+end
+
+-- 游戏大厅回调索引映射函数
+local game_center_handle = function(channel, message)
+    s.resp.send(nil, cjson.encode({message}))
+end
+
+local function get_index()
+    local res = skynet.call("msgserver", "lua", "get_index")
+    return res
+end
+
+-- 所有频道的订阅都可以进行添加
+local function subscribe()
+    local index = get_index()
+    skynet.send("msgserver", "lua", "subscribe", "game_center", cjson.encode({ index = index, node = s.node, agent = skynet.self() }))
+    s.callbackFunc[index] = game_center_handle
+
+    ---
 end
 
 s.init = function() 
@@ -176,19 +205,11 @@ s.init = function()
         s.mail_count = s.mail_count + 1
     end
 
-
     -- 订阅频道
-    -- ps: skynet.send中pack参数不能serialize type function, 两种方式
-    --  1. { func = func } -> msg.func()  -- 好像还是不可以
-    --  2. string.dump(func) -> load(func)()
-
-    local game_center_handle = function(channel, message, user_id, node, gate)
-        s.send(node, gate, "send", user_id, cjson.encode( {message} ))
-    end
-
-    local game_center_handle_msg = string.dump(game_center_handle)
-    skynet.send("msgserver", "lua", "subscribe", "game_center", cjson.encode({ handle = game_center_handle_msg, user_id = s.id, node = s.node, gate = s.gate }))
-    
+    -- ps: skynet.send中pack参数不能serialize type function 
+    -- 序列化会转二进制，丢失upvalue
+    --  1. string.dump(func) -> load(func)()
+    subscribe()
 end 
 
 s.start(...)

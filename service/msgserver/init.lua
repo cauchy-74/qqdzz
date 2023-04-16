@@ -3,30 +3,38 @@
 local skynet = require "skynet"
 local s = require "service"
  
+local channels = {} -- 对应频道不同玩家的{index,node,agent}
+local index_callbackFunc = 0 -- 唯一索引
+
 local update_last_time = os.time()
-local channels = {}
+
+-- 获取唯一回调函数索引
+s.resp.get_index = function(source)
+    index_callbackFunc = index_callbackFunc + 1
+    return index_callbackFunc
+end
 
 -- 由于service封装，参数不能是function
-s.resp.subscribe = function(source, channel, handler)
+s.resp.subscribe = function(source, channel, msgJS)
     -- INFO("[msgserver]：subscribe ==>> " .. channel)
 
     if not channels[channel] then 
         channels[channel] = {} 
     end
 
-    table.insert(channels[channel], handler)
+    table.insert(channels[channel], msgJS)
     return true
 end
 
-s.resp.unsubscribe = function(source, channel, handler)
+s.resp.unsubscribe = function(source, channel, msgJS)
     -- INFO("[msgserver]：unsubscribe ==>> " .. channel)
 
     if channels[channel] then 
-        if not handler then 
+        if not msgJS or msgJS == nil then 
             channels[channel] = nil 
         else 
             for i, v in ipairs(channels[channel]) do 
-                if v == handler then 
+                if v == index then 
                     table.remove(channels[channel], i)
                     break
                 end
@@ -59,7 +67,7 @@ local function update(dt)
     -- INFO("[msgserver]：update ~~~~ ")
     -- local now = os.date("%Y-%m-%d %H:%M:%S", os.time())
     local now = os.time()
-    local sql = string.format("select * from Message where timestamp between %d and %d;", update_last_time, now) 
+    local sql = string.format("select * from Message where timestamp > %d and timestamp <= %d;", update_last_time, now) 
     local result = skynet.call("mysql", "lua", "query", sql)
 
     if result then 
@@ -69,12 +77,7 @@ local function update(dt)
             
             for _, msgJS in pairs(channels[channel]) do
                 local msg = cjson.decode(msgJS)
-                local user_id = msg.user_id
-                local node = msg.node
-                local gate = msg.gate
-                local handler = load(msg.handle)
-
-                handler(channel, message, user_id, node, gate) 
+                s.send(msg.node, msg.agent, "callback", msg.index, channel, message)  
             end
         end
     end
@@ -143,6 +146,18 @@ local function mail_cache_loop()
     del_index_record = nil
 end
 
+local function clear()
+    local sql = string.format("select count(*) as num from Message;"); 
+    local res = skynet.call("mysql", "lua", "query", sql)
+
+    if res then 
+        if res[1].num > 300 then -- 大于300条数据 clear
+            local sql = string.format("delete from Message where timestamp < %d;", os.time()); 
+            skynet.send("mysql", "lua", "query", sql)
+        end
+    end
+end
+
 local function mail_loop() 
     -- 基于时间轮的定时器，单位10毫秒
     skynet.timeout(3 * 100, function() -- 10s
@@ -152,9 +167,16 @@ local function mail_loop()
 end
 
 local function subscribe_loop() 
-    skynet.timeout(2 * 100, function()
+    skynet.timeout(131, function()
         update()
         subscribe_loop() 
+    end)
+end
+
+local function clear_loop()
+    skynet.timeout(3000, function()
+        clear()
+        clear_loop()
     end)
 end
 
@@ -170,6 +192,7 @@ s.init = function()
 
     skynet.fork(mail_loop) 
     skynet.fork(subscribe_loop)
+    skynet.fork(clear_loop)
 end
 
 s.start(...)

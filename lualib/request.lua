@@ -22,6 +22,8 @@ local messageType = {
     mail_send = 14,
     is_friend = 15, 
     mail_del = 16,
+    list_friend = 17,
+    list_chat = 18,
 
     error = 504,
 }
@@ -44,6 +46,8 @@ local messageProto = {
     [messageType.mail_send] = "MailSendRequest",
     [messageType.is_friend] = "IsFriendRequest",
     [messageType.mail_del] = "MailDelRequest",
+    [messageType.list_friend] = "ListFriendRequest",
+    [messageType.list_chat] = "ListChatRequest",
 
     [messageType.error] = "ErrorRequest",
 }
