@@ -182,12 +182,12 @@ s.init = function()
     --  1. { func = func } -> msg.func()  -- 好像还是不可以
     --  2. string.dump(func) -> load(func)()
 
-    local game_center_func = function(channel, message)
-        s.resp.send(nil, cjson.encode({ message })) 
+    local game_center_handle = function(channel, message, user_id, node, gate)
+        s.send(node, gate, "send", user_id, cjson.encode( {message} ))
     end
 
-    local func_msg = string.dump(game_center_func)
-    skynet.send("msgserver", "lua", "subscribe", "game_center", { func = func_msg })
+    local game_center_handle_msg = string.dump(game_center_handle)
+    skynet.send("msgserver", "lua", "subscribe", "game_center", cjson.encode({ handle = game_center_handle_msg, user_id = s.id, node = s.node, gate = s.gate }))
     
 end 
 

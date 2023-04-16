@@ -12,11 +12,11 @@ s.client.chat = function(msgBS)
     -- 指令id优先于message，nil无用
     if obj_id == 0 or obj_id == nil then 
         -- channel: 大厅全部; 游戏中的房间全部
-
+        
         if s.sname == nil then 
             -- game_center: 游戏大厅
             local str = string.format("『ID: %d』: %s", tonumber(s.id), msg.message)
-            skynet.send("msgserver", "publish", "game_center", str)  
+            skynet.send("msgserver", "lua", "publish", "game_center", str)  
         else
             -- sceneid: 游戏场景
             local str = string.format("『ID: %d』: %s", tonumber(s.id), msg.message)
@@ -35,8 +35,9 @@ s.client.chat = function(msgBS)
         
         -- 判断对方是否在线： 之后加数据库写成离线
         local online = skynet.call("agentmgr", "lua", "get_online_id", obj_id)
+        ERROR(tostring(online))
         if not online then 
-            s.resp.send(cjson.encode({ "friend is not online" })) 
+            s.resp.send(nil, cjson.encode({ "friend is not online" })) 
             return nil
         end
 

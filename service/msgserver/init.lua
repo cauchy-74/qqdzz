@@ -3,26 +3,23 @@
 local skynet = require "skynet"
 local s = require "service"
  
-local subscribe_last_time = os.date("%Y-%m-%d %H:%M:%S", os.time())
+local update_last_time = os.time()
 local channels = {}
 
 -- 由于service封装，参数不能是function
-s.resp.subscribe = function(source, channel, func_table)
-    INFO("[msgserver]：subscribe ==>> " .. channel)
+s.resp.subscribe = function(source, channel, handler)
+    -- INFO("[msgserver]：subscribe ==>> " .. channel)
 
     if not channels[channel] then 
         channels[channel] = {} 
     end
 
-    local handler = load(func_table.func)
     table.insert(channels[channel], handler)
     return true
 end
 
-s.resp.unsubscribe = function(source, channel, func_table)
-    INFO("[msgserver]：unsubscribe ==>> " .. channel)
-
-    local handler = load(func_table.func)
+s.resp.unsubscribe = function(source, channel, handler)
+    -- INFO("[msgserver]：unsubscribe ==>> " .. channel)
 
     if channels[channel] then 
         if not handler then 
@@ -36,6 +33,7 @@ s.resp.unsubscribe = function(source, channel, func_table)
             end
         end
     end
+    return true
 end
 
 -- sql语句，插入要是string -> %s。不能是table。
@@ -44,10 +42,11 @@ end
 s.resp.publish = function(source, channel, message)
     INFO("[msgserver]：publish ==>> " .. channel)
 
-    local time = os.date("%Y-%m-%d %H:%M:%S", os.time())
+    local timestamp = os.time()
+    local time = os.date("%Y-%m-%d %H:%M:%S", timestamp)
 
     -- 所有消息先统一存在Message表中，之后分类
-    local sql = string.format("insert into Message (channel, message, time) values (%s, %s, '%s');", channel, mysql.quote_sql_str(message), time)
+    local sql = string.format("insert into Message (channel, message, time, timestamp) values (%s, %s, '%s', %d);", mysql.quote_sql_str(channel), mysql.quote_sql_str(message), time, timestamp)
     skynet.send("mysql", "lua", "query", sql)
 
     return true
@@ -57,9 +56,10 @@ end
 -- 目前想法：维护一个上一次的发布时间
 -- 每次选择该段时间内的新消息进行发送
 local function update(dt)
-    INFO("[msgserver]：update ~~~~ ")
-    local now = os.date("%Y-%m-%d %H:%M:%S", os.time())
-    local sql = string.format("select * from Message where time >= '%s' and time <= '%s';", subscribe_last_time, now) 
+    -- INFO("[msgserver]：update ~~~~ ")
+    -- local now = os.date("%Y-%m-%d %H:%M:%S", os.time())
+    local now = os.time()
+    local sql = string.format("select * from Message where timestamp between %d and %d;", update_last_time, now) 
     local result = skynet.call("mysql", "lua", "query", sql)
 
     if result then 
@@ -67,13 +67,19 @@ local function update(dt)
             local channel = row.channel
             local message = row.message 
             
-            for _, handler in pairs(channels[channel]) do
-                handler(channel, message) 
+            for _, msgJS in pairs(channels[channel]) do
+                local msg = cjson.decode(msgJS)
+                local user_id = msg.user_id
+                local node = msg.node
+                local gate = msg.gate
+                local handler = load(msg.handle)
+
+                handler(channel, message, user_id, node, gate) 
             end
         end
     end
 
-    subscribe_last_time = now
+    update_last_time = now
 end
 
 -- 订阅者模式
