@@ -42,14 +42,19 @@
 ## 项目配置
 
 ## etc
+
 配置文件夹
+
 1. **config.node**
 > 记录节点的相关信息
+
 2. **runconfig.lua**
 > 全局的运行配置，项目的拓扑结构
 
 ## luaclib
+
 C模块文件夹 
+
 1. **cjson.so**
 > cjson 
 > 轻量级json解析器和生成器，快速解析生成json格式的数据，使用简单，代码量小，方便集成。
@@ -58,6 +63,7 @@ C模块文件夹
 > Google开发的数据序列化和反序列化工具，高效将结构化数据进行编码和解码。protobuf生成的二进制数据体积小，解析快，能够在网络传输和存储场景中提高效率。支持多种编成语言，方便实现跨语言的数据交换。使用IDL（Interface Description Language）描述数据结构，方便扩展和修改数据结构。
 
 ## lualib
+
 lua模块
 
 1. **service.lua**
@@ -69,11 +75,18 @@ lua模块
 > (4). dispatch(session, address, cmd, ...)：模块的消息分发处理机制，调用M.resp\[cmd\]方法，并返回调用方法后的返回值给发送方。    
 > (5). M.call(node, srv, ...)；M.send(node, srv, ...)：重写call和node方法，便于在不同节点间的通信调用。    
 
+
+2. **request.lua**
+> 指令请求封装模块，用于解析【cmd para1 para2 ...】
+
+
 ## proto 
-> 用于存放通信协议的描述文件
+
+用于存放通信协议的描述文件
 
 ## storage
-> 用于“存储数据”的描述文件
+
+用于“存储数据”的描述文件
 
 ## service
 
@@ -87,27 +100,25 @@ lua模块
 > 代理服务  
 
 1. **init.lua**   
-
 > 实现基础的用户执行命令方法cmd，和回调方法。    
-> s.client.work; （ 执行用户 \[work\] 命令）   
-> s.resp.client; s.resp.kick; s.resp.exit; s.resp.send;  （ client用于分派用户命令执行，kick下线,exit退出,send与gateway通信。）   
 
 2. **scene.lua**   
+> 场景功能模块; 在init.lua中导入：require "scene"     
 
-> 场景功能模块，在init.lua中导入：require "scene"     
-> 添加了用户的命令功能，s.client.enter;  s.client.shift; （进入场景；移动）   
-> 实现了random_scene()局域方法，随机选取场景节点。   
-> 实现了leave_scene()模块方法，用于退出场景，需要发送leave请求给scene节点完成退出。   
+3. **mail.lua**
+> 邮件功能模块
 
+4. **friend.lua**
+> 好友功能模块
 
-
+5. **chat.lua**
+> 聊天功能模块
 
 ### agentmgr
 
 > 全局管理代理服务   
 
 1. **init.lua**   
-> 目前实现reqkick和reqlogin两个回调方法。     
 > login成功返回agent代理，即动态开启agent代理服务。   
 
 ### gateway
@@ -122,8 +133,7 @@ lua模块
 > 登录服务  
 
 1. **login.lua**  
-> 完成登录操作，向agentmgr发起登录请求，拿到agent代理后，通过sure_agent回调给网关完成fd与agent的绑定。  
-
+> 完成登录操作，向agentmgr发起登录请求，拿到agent代理后，通过sure_agent回调给网关完成fd与agent的绑定，并设置好agent的属性：gate等。
 
 
 ### scene 
@@ -146,19 +156,135 @@ lua模块
 
 > 新启agent服务，并返回该服务。  
 
+### mysql
+
+> 数据库服务 
+
+1. **init.lua**
+
+> 维护数据库连接池
+
+
+### msgserver 
+
+> 消息分发服务 
+
+1. **init.lua**
+
+> 订阅者模式 & 邮件系统
+
 ### admin 
 
 > 管理员服务
 
-1. **init.lua** 
-
-> 监听127.0.0.1:8888端口，直接telnet 127.0.0.1 8888 连接服务器后，下放命令“stop”等。
 
 ------
 
-# 版本的不足  
+# 数据库设计
+
+## 用户信息表（UserInfo）
+|  Field  | Type | Null | Key  | Default | Extra |
+| :-----: | :--: | :--: | :--: | :-----: | :---: |
+| user_id | int  |  NO  | PRI  |  NULL   |       |
+|  data   | blob | YES  |      |  NULL   |       |
+
+
+## 邮件信息表（MailInfo）
+|  Field  |   Type   | Null | Key  | Default |     Extra      |
+| :-----: | :------: | :--: | :--: | :-----: | :------------: |
+|   id    |   int    |  NO  | PRI  |  NULL   | auto_increment |
+|  from   |   int    |  NO  | MUL  |  NULL   |                |
+|   to    |   int    |  NO  | MUL  |  NULL   |                |
+|  time   | datetime |  NO  |      |  NULL   |                |
+| channel |   int    | YES  |      |  NULL   |                |
+| message |   text   | YES  |      |  NULL   |                |
+
+## 好友信息表（FriendInfo）
+|   Field   | Type | Null | Key  | Default |     Extra      |
+| :-------: | :--: | :--: | :--: | :-----: | :------------: |
+|    id     | int  |  NO  | PRI  |  NULL   | auto_increment |
+|  user_id  | int  |  NO  | MUL  |  NULL   |                |
+| friend_id | int  |  NO  | MUL  |  NULL   |                |
+| chat_msg  | blob | YES  |      |  NULL   |                |
+
+## 用户邮件表（UserMail）
+|    Field    |     Type     | Null | Key  | Default | Extra |
+| :---------: | :----------: | :--: | :--: | :-----: | :---: |
+|   user_id   |     int      |  NO  | PRI  |  NULL   |       |
+|   mail_id   |     int      |  NO  |      |  NULL   |       |
+|    from     |     int      |  NO  |      |  NULL   |       |
+|     to      |     int      |  NO  |      |  NULL   |       |
+|    title    | varchar(100) | YES  |      |  NULL   |       |
+|   message   |     text     | YES  |      |  NULL   |       |
+|   channel   |     int      |  NO  |      |  NULL   |       |
+|   is_read   |  tinyint(1)  | YES  |      |  NULL   |       |
+| is_rewarded |  tinyint(1)  | YES  |      |  NULL   |       |
+|    time     |   datetime   |  NO  |      |  NULL   |       |
+
+## 好友聊天表（FriendChat）
+|   Field   |   Type   | Null | Key  | Default |     Extra      |
+| :-------: | :------: | :--: | :--: | :-----: | :------------: |
+|    id     |   int    |  NO  | PRI  |  NULL   | auto_increment |
+|   lowid   |   int    |  NO  |      |  NULL   |                |
+|   upid    |   int    |  NO  |      |  NULL   |                |
+|   time    | datetime |  NO  |      |  NULL   |                |
+| timestamp |   int    |  NO  |      |  NULL   |                |
+|  message  |   text   | YES  |      |  NULL   |                |
+
+
+## 消息表（Message）
+|   Field   |    Type     | Null | Key  | Default |     Extra      |
+| :-------: | :---------: | :--: | :--: | :-----: | :------------: |
+|    id     |    Type     |  NO  | PRI  |  NULL   | auto_increment |
+|  channel  | varchar(50) |  NO  |      |  NULL   |                |
+|  message  |    text     |  NO  |      |  NULL   |                |
+|   time    |  datetime   |  NO  |      |  NULL   |                |
+| timestamp |     int     |  NO  | MUL  |  NULL   |                |
+
+
+
+
+
+----------------------
+
+# 版本迭代
+
+## version:0.2:
+
+### 添加功能：
+
+> 1. 添加邮件系统
+    **内容：** msgserver服务，内部包含订阅者模式，暂时提供玩家聊天功能。邮件功能：开启定时器，对维护的邮件缓存表定时查看，如果该邮件发送对象上线了，就发送给玩家。
+    **问题：** 轮询式遍历目前所有未发送的邮件，资源开销大。
+ 
+> 2. 添加好友系统
+    **内容：** friend.lua模块，通过邮件系统发送给玩家好友请求邮件。玩家可通过回复邮件操作，附带消息msg：yes,no来选择。除此还有基础好友功能，见协议部分。
+
+> 3. 实现基础聊天功能
+    **内容：** chat.lua模块，通过给上线用户订阅channel，实现点对点聊天，和大厅聊天功能。
+
+> 4. 实现部分数据库操作, 完成数据的可持久化
+    **内容：** 添加了UserInfo, UserMail, FriendInfo, FriendChat, Message, MailInfo等表用于数据落盘。
+
+### 遇到的问题：
+
+> 1. 聊天的信息丢失
+    **解决：** 做延时处理，x时刻发出的消息标记为x时刻，但x时刻轮询的消息查询，查询的是x-y时刻的消息。y时间段之后，就能查询到x时刻的消息，在进行广播。由于查询是时间段，满足左开右闭的查询，注意更新上一个时间点，即左端点需要及时更新。
+
+> 2. 回调函数的闭包不成功
+    **问题：** 在订阅者模式中，本打算用回调函数完成功能。但是skyent.send函数会序列化为二进制数据发送，尽管使用了string.dump,load函数，但是函数闭包出错了。原因是二进制下传输，会丢失掉函数的upvalue等内部维护的状态信息。
+    **解决：** 通过msgserver服务维护全局回调函数索引，然后在本agent服务内也对应维护该索引（需要msgserver服务回调获得该索引值）。传递回调函数，即转为传递索引，然后本服务内通过索引拿到要调用的函数，自然该函数所有上值都存在，并且能获得本服务所有信息。即使用s.resp.send跟对应客户端client通信。
+
+
+
+
+-----
+
+
 
 ## version:0.1:  
+
+### 存在的问题:
 
 > 1. 登录协议返回之前（agentmgr：s.call(node, "nodemgr", "newservice", "agent", "agent", playerid)还未返回），客户端已经下线，但此时agentmgr记录是“LOGIN”状态，这样下线请求不会被执行，除非再次登入踢下线，否则agent一直存在。  
     **解决：** gateway 与 agent 之间偶尔发送心跳协议，若检测客户端连接已断开，则请求下线。 
@@ -185,3 +311,8 @@ lua模块
     **解决：** 对于大量玩家，可以对数据库做分库分表，用redis做一层缓存。
 
 > 9. 服务端稳定运行的前提是所有Skynet节点都能稳定运行，且维持稳定网络通信。因此所有节点应当部署在同一局域网。  
+
+----
+
+
+
