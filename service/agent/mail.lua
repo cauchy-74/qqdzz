@@ -28,7 +28,7 @@ local temp = nil
 local function remake_message()
     temp = {}
     local cnt = get_mail_count()
-    if s.mail_count ~= cnt then -- 说明有新邮件
+    if s.mail_count ~= cnt then -- 说明邮件数不匹配
         for id, msgJS in pairs(s.mail_message) do 
             temp[tonumber(id)] = msgJS
         end
@@ -58,9 +58,13 @@ s.client.mail_view = function(msgBS)
         -- 具体查看某邮件，需要修改当前邮件的属性。is_read, is_rewarded
         
         local mail = cjson.decode(s.mail_message[mail_id]) -- 拿到这封邮件
-        local mail_id = mail.mail_id
         mail.is_read = true 
         mail.is_rewarded = true -- 默认查看就算领取奖励
+        s.mail_message[mail_id] = cjson.encode(mail)
+
+        
+        local sql = string.format("update UserMail set is_read = true, is_rewarded = true where user_id = %d and mail_id = %d;", mail.user_id, mail.mail_id)
+        skynet.send("mysql", "lua", "query", sql)
 
         s.send(s.node, s.gate, "send", s.id, cjson.encode(mail))
     end
@@ -125,7 +129,7 @@ s.client.mail_del = function(msgBS)
 
     -- 删除全部邮件
     if cache_mail_id == nil or cache_mail_id == 0 then 
-        local sql = string.format("delete from UserMail where user_id = %d;", s.id)
+        local sql = string.format("delete from UserMail where `user_id` = %d;", s.id)
         skynet.send("mysql", "lua", "query", sql)
         
         s.mail_count = 0 
@@ -137,7 +141,7 @@ s.client.mail_del = function(msgBS)
     local mail = cjson.decode(s.mail_message[cache_mail_id])
     local mysql_mail_id = tonumber(mail.mail_id)
 
-    local sql = string.format("delete from UserMail where user_id = %d and mail_id = %d;", s.id, mysql_mail_id)
+    local sql = string.format("delete from UserMail where `user_id` = %d and `mail_id` = %d;", s.id, mysql_mail_id)
     skynet.send("mysql", "lua", "query", sql)
 
     s.mail_count = s.mail_count - 1

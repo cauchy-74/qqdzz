@@ -95,7 +95,7 @@ s.mail_count = 0 -- 需要在服务启动时更新为max(id)
 s.resp.recv_mail = function(source, msgJS)
     s.mail_count = s.mail_count + 1
     local msg = cjson.decode(msgJS)
-    msg.user_id = msg.from
+    msg.user_id = msg.to -- user_id 应该是 to
     msg.mail_id = tonumber(s.mail_count)  -- 给邮件打上唯一标识mail_id
     msg.is_read = false 
     msg.is_rewarded = false 
@@ -160,22 +160,31 @@ end
 
 local function mail_loop() 
     -- 基于时间轮的定时器，单位10毫秒
+    local online = skynet.call("agentmgr", "lua", "get_online_count")
     skynet.timeout(3 * 100, function() -- 10s
-        mail_cache_loop()
+        if online > 0 then 
+            mail_cache_loop()
+        end
         mail_loop()
     end) 
 end
 
 local function subscribe_loop() 
+    local online = skynet.call("agentmgr", "lua", "get_online_count")
     skynet.timeout(237, function()
-        update()
+        if online > 0 then 
+            update()
+        end
         subscribe_loop() 
     end)
 end
 
 local function clear_loop()
+    local online = skynet.call("agentmgr", "lua", "get_online_count")
     skynet.timeout(3000, function()
-        clear()
+        if online > 0 then 
+            clear()
+        end
         clear_loop()
     end)
 end
