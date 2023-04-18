@@ -8,6 +8,10 @@ local index_callbackFunc = 0 -- 唯一索引
 
 local update_last_time = os.time()
 
+local mail_loop_time = 300 -- 邮件轮询时长间隔
+local chat_loop_time = 200 -- 订阅轮询时长间隔
+local clear_loop_time= 3000-- 邮件清理
+
 -- 获取唯一回调函数索引
 s.resp.get_index = function(source)
     index_callbackFunc = index_callbackFunc + 1
@@ -54,7 +58,7 @@ s.resp.publish = function(source, channel, message)
     local time = os.date("%Y-%m-%d %H:%M:%S", timestamp)
 
     -- 所有消息先统一存在Message表中，之后分类
-    local sql = string.format("insert into Message (channel, message, time, timestamp) values (%s, %s, '%s', %d);", mysql.quote_sql_str(channel), mysql.quote_sql_str(message), time, timestamp)
+    local sql = string.format("insert into Message (`channel`, `message`, `time`, `timestamp`) values (%s, %s, '%s', %d);", mysql.quote_sql_str(channel), mysql.quote_sql_str(message), time, timestamp)
     skynet.send("mysql", "lua", "query", sql)
 
     return true
@@ -67,7 +71,8 @@ local function update(dt)
     -- INFO("[msgserver]：update ~~~~ ")
     -- local now = os.date("%Y-%m-%d %H:%M:%S", os.time())
     local now = os.time()
-    local sql = string.format("select * from Message where timestamp > %d and timestamp <= %d;", update_last_time, now) 
+    local sql = string.format("select * from Message where `timestamp` > %d and `timestamp` <= %d;", update_last_time, now) 
+    update_last_time = now -- 必须立即更新
     local result = skynet.call("mysql", "lua", "query", sql)
 
     if result then 
@@ -82,7 +87,7 @@ local function update(dt)
         end
     end
 
-    update_last_time = now
+    -- update_last_time = now
 end
 
 -- 订阅者模式
@@ -152,7 +157,7 @@ local function clear()
 
     if res then 
         if res[1].num > 300 then -- 大于300条数据 clear
-            local sql = string.format("delete from Message where timestamp < %d;", os.time()); 
+            local sql = string.format("delete from Message where `timestamp` < %d;", os.time()); 
             skynet.send("mysql", "lua", "query", sql)
         end
     end
@@ -161,7 +166,7 @@ end
 local function mail_loop() 
     -- 基于时间轮的定时器，单位10毫秒
     local online = skynet.call("agentmgr", "lua", "get_online_count")
-    skynet.timeout(3 * 100, function() -- 10s
+    skynet.timeout(mail_loop_time, function() -- 10s
         if online > 0 then 
             mail_cache_loop()
         end
@@ -171,7 +176,7 @@ end
 
 local function subscribe_loop() 
     local online = skynet.call("agentmgr", "lua", "get_online_count")
-    skynet.timeout(237, function()
+    skynet.timeout(chat_loop_time, function()
         if online > 0 then 
             update()
         end
@@ -181,7 +186,7 @@ end
 
 local function clear_loop()
     local online = skynet.call("agentmgr", "lua", "get_online_count")
-    skynet.timeout(3000, function()
+    skynet.timeout(clear_loop_time, function()
         if online > 0 then 
             clear()
         end

@@ -63,7 +63,7 @@ s.client.mail_view = function(msgBS)
         s.mail_message[mail_id] = cjson.encode(mail)
 
         
-        local sql = string.format("update UserMail set is_read = true, is_rewarded = true where user_id = %d and mail_id = %d;", mail.user_id, mail.mail_id)
+        local sql = string.format("update UserMail set `is_read` = true, `is_rewarded` = true where `user_id` = %d and `mail_id` = %d;", mail.user_id, mail.mail_id)
         skynet.send("mysql", "lua", "query", sql)
 
         s.send(s.node, s.gate, "send", s.id, cjson.encode(mail))
