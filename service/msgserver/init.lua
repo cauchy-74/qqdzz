@@ -10,6 +10,7 @@ local update_last_time = os.time()
 
 local mail_loop_time = 300 -- 邮件轮询时长间隔
 local chat_loop_time = 200 -- 订阅轮询时长间隔
+local chat_loop_time_s = chat_loop_time / 100 -- 2s
 local clear_loop_time= 3000-- 邮件清理
 
 -- 获取唯一回调函数索引
@@ -71,7 +72,8 @@ local function update(dt)
     -- INFO("[msgserver]：update ~~~~ ")
     -- local now = os.date("%Y-%m-%d %H:%M:%S", os.time())
     local now = os.time()
-    local sql = string.format("select * from Message where `timestamp` > %d and `timestamp` <= %d;", update_last_time, now) 
+    local sql = string.format("select * from Message where `timestamp` > %d and `timestamp` <= %d;", update_last_time - chat_loop_time_s, now - chat_loop_time_s) 
+
     update_last_time = now -- 必须立即更新
     local result = skynet.call("mysql", "lua", "query", sql)
 
