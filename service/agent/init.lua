@@ -30,31 +30,14 @@ end
 s.client.view = function(msgBS, source)
     local user_info = s.data
 
-    return cjson.encode({
-        [1] = {msg_type = "view_resp"},
-        [2] = {success = "true"},
-        [3] = {msg = {
-            [1] = {user_id = user_info.user_id},
-            [2] = {username = user_info.username}, 
-            [3] = {password = user_info.password}, 
-            [4] = {email = user_info.email}, 
-            [5] = {level = user_info.level}, 
-            [6] = {coin = user_info.coin}, 
-            [7] = {experience = user_info.experience}, 
-            [8] = {last_login_time = user_info.last_login_time}, 
-        }},
-    })
+    return json_format({code = "view", status = "success", data = {user_id = user_info.user_id, username = user_info.username, password = user_info.password, email = user_info.email, level = user_info.level, coin = user_info.coin, experience = user_info.experience, last_login_time = user_info.last_login_time}})
 end
 
 s.client.work = function(msgBS, source)
     -- [[ work,100 ]] -- 协议名，金币数量
     INFO("[agent]：开始[ work ]")
-    s.data.coin = s.data.coin + 1 
-    return cjson.encode({
-        [1] = {msg_type = "work_resp"}, 
-        [2] = {success = "true"},
-        [3] = {msg = "coin += 1"},
-    })
+    s.data.coin = s.data.coin + 1
+    return json_format({code = "work", status = "success", message = "coin += 1", data = {coin = s.data.coin}})
 end 
 
 -- 保存数据，可以玩家主动保存
@@ -63,18 +46,10 @@ s.client.save_data = function(msgBS, source)
     local sql = string.format("update UserInfo set data = %s where user_id = %d;", mysql.quote_sql_str(user_info), s.data.user_id)
     local res = skynet.call("mysql", "lua", "query", sql)
     if not res then 
-        return cjson.encode({
-            [1] = {msg_type = "save_data_resp"}, 
-            [2] = {success = "false"},
-            [3] = {msg = "save data failed"},
-        })
+        return json_format({code = "save_data", status = "failed", message = "Database update failed"})
     end
 
-    return cjson.encode({
-        [1] = {msg_type = "save_data_resp"}, 
-        [2] = {success = "true"},
-        [3] = {msg = "save data success"},
-    })
+    return json_format({code = "save_data", status = "success", message = "Successfully update data"})
 end
 
 -- 主动离线

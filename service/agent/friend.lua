@@ -11,7 +11,7 @@ s.client.add_friend = function(msgBS)
 
     local is_friend_msgBS = request:encode({"is_friend", msg.friend_id})
     if s.client.is_friend(is_friend_msgBS) then 
-        s.resp.send(nil, cjson.encode({ "You are friend!" }))
+        s.resp.send(nil, json_format({code = "add_friend", status = "false", message = "Already be friends"}))
         return nil
     end
 
@@ -33,7 +33,7 @@ s.client.del_friend = function(msgBS)
 
     local is_friend_msgBS = request:encode({"is_friend", msg.friend_id})
     if not s.client.is_friend(is_friend_msgBS) then 
-        s.resp.send(nil, cjson.encode({ "No, You are not be friend~" }))
+        s.resp.send(nil, json_format({code = "del_friend", status = "failed", message = "You are not friend!"}))
         return nil
     end
 
@@ -42,7 +42,7 @@ s.client.del_friend = function(msgBS)
     local sql = string.format("delete from FriendInfo where user_id = %d and friend_id = %d;", msg.friend_id, s.id)
     skynet.send("mysql", "lua", "query", sql)
 
-    s.resp.send(nil, cjson.encode({ "OK~, Be a stranger~" }))
+    s.resp.send(nil, json_format({code = "del_friend", status = "success", message = "OK~, Be a stranger~"}))
     return nil 
 end
 
@@ -63,11 +63,19 @@ end
 s.client.list_friend = function(msgBS)
     local sql = string.format("select * from FriendInfo where user_id = %d;", s.id)
     local result = skynet.call("mysql", "lua", "query", sql)
+
+    local ret = {code = "list_friend", status = "success", message = "", data = {}}
+
     if result then 
+        ret.message = "There are your friends"
         for _, row in ipairs(result) do
-            s.resp.send(nil, cjson.encode({ row.friend_id }))
+            ret.data[_] = row.friend_id 
         end
+    else 
+        ret.message = "No friends~"
+        ret.data = nil
     end
+    s.resp.send(nil, json_format(ret))
 end
 
 -- 先放着

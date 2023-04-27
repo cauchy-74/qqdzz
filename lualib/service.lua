@@ -24,6 +24,31 @@ INFO = skylog("【INFO】", "\x1b[37m") -- white
 WARNING = skylog("【WARNING】", "\x1b[32m") -- green
 ERROR = skylog("【ERROR】", "\x1b[31m") --red 
 
+-- json输出格式化
+json_format = function(obj)
+    local function format(val, indent)
+        if type(val) == "table" then
+            local res = "{\n"
+            local i = 1
+            for k, v in pairs(val) do
+                res = res .. string.rep(" ", indent) .. "\"" .. k .. "\": " .. format(v, indent + 4)
+                if i < #val then
+                    res = res .. ","
+                end
+                res = res .. "\n"
+                i = i + 1
+            end
+            res = res .. string.rep(" ", indent - 4) .. "}"
+            return res
+        elseif type(val) == "string" then
+            return "\"" .. val .. "\""
+        else
+            return tostring(val)
+        end
+    end
+    return format(obj, 4)
+end
+
 local M = {
     name = "", -- 服务类型
     id = 0, -- 服务编号

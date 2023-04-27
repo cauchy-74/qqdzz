@@ -36,17 +36,9 @@ s.client.register = function(fd, msgBS, source)
     local res = skynet.call("mysql", "lua", "query", sql)
     
     if res then 
-        return cjson.encode({ 
-            [1] = {msg_type = "register_resp"}, 
-            [2] = {success = true},
-            [3] = {msg = "register success"}
-        })
+        return json_format({code = "register", status = "success", message = "Already written to the database", data = { id = user_info.user_id, username = user_info.username, password = user_info.password }})
     else 
-        return cjson.encode({ 
-            [1] = {msg_type = "register_resp"}, 
-            [2] = {success = false},
-            [3] = {msg = "register failed"}
-        })
+        return json_format({code = "register", status = "failed", message = "Database not working"})
     end
 end
 
@@ -58,11 +50,7 @@ s.client.login = function(fd, msgBS, source)
 
     -- 账号未注册
     if type(res[1]) ~= "table" then -- 这样判断是由于res返回值找不出问题，这样能判断先用着
-        return cjson.encode({
-            [1] = {msg_type = "login_resp"},
-            [2] = {success = "false"},
-            [3] = {msg = "account not registered"}
-        })
+        return json_format({code = "login", status = "failed", message = "Account not register"})
     end
 
     local playerid = msg.userid 
@@ -78,45 +66,28 @@ s.client.login = function(fd, msgBS, source)
     local user_info = pb.decode("UserInfo", res[1].data)
 
     if  pw ~= user_info.password then 
-        return cjson.encode({
-            [1] = {msg_type = "login_resp"}, 
-            [2] = {success = "false"}, 
-            [3] = {msg = "wrong password"}
-        })
+        return json_format({code = "login", status = "failed", message = "wrong password"})
     else 
         -- 向agentmgr发起请求
         local isok, pagent = skynet.call("agentmgr", "lua", "reqlogin", playerid, node, gate) 
         agent = pagent
 
         if not isok then 
-            return cjson.encode({
-                [1] = {msg_type = "login_resp"}, 
-                [2] = {success = "false"}, 
-                [3] = {msg = "failed to request agentmgr"}
-            })
+            return json_format({code = "login", status = "failed", message = "failed to request agentmgr"})
         end 
     end 
     -- 回应gate
     local isok, token = skynet.call(gate, "lua", "sure_agent", fd, playerid, agent) 
     
     if not isok then 
-        return cjson.encode({
-            [1] = {msg_type = "login_resp"}, 
-            [2] = {success = "false"}, 
-            [3] = {msg = "gateway authentication failed"}
-        })
+        return json_format({code = "login", status = "failed", message = "gateway authentication failed"})
     end 
 
     INFO("[login" .. s.id .. "]: 登录成功 => 用户id：" .. playerid)
 
     s.send(node, agent, "sure_gate", gate)
 
-    return cjson.encode({
-        [1] = {msg_type = "login_resp"}, 
-        [2] = {success = "true"}, 
-        [3] = {token = token}, 
-        [4] = {msg = "login success"}
-    })
+    return json_format({code = "login", status = "success", message = "Already login!", data = {token = token}})
 end 
 
 --[[

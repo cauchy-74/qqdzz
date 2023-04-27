@@ -75,7 +75,7 @@ s.resp.reqlogin = function(source, playerid, node, gate)
         mplayer.status = STATUS.LOGOUT 
         s.call(pnode, pagent, "kick") 
         s.send(pnode, pagent, "exit")
-        s.send(pnode, pgate, "send", playerid, cjson.encode({ "kick", "顶替下线" })) 
+        s.send(pnode, pgate, "send", playerid, json_format({code = "kick", status = "true", message = "Be replaced~~~"}))  -- statuc->true
         s.call(pnode, pgate, "kick", playerid)
     end 
 

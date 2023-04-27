@@ -91,8 +91,7 @@ s.resp.enter_scene = function(source, playerid, node, agent)
     -- 记录
     balls[playerid] = b
     -- 回应
-    local ret_msg = { "enter_scene", 0, "进入游戏" }
-    ret_msg = cjson.encode(ret_msg)
+    local ret_msg = json_format({code = "enter_scene", status = "success", message = "Successfully entered"})
 
     s.send(b.node, b.agent, "send", ret_msg) 
     -- 发战场信息
