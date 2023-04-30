@@ -24,6 +24,12 @@ local messageType = {
     mail_del = 16,
     list_friend = 17,
     list_chat = 18,
+    w = 19, 
+    s = 20, 
+    a = 21, 
+    d = 22,
+    c = 23, 
+    m = 24,
 
     error = 504,
 }
@@ -48,6 +54,13 @@ local messageProto = {
     [messageType.mail_del] = "MailDelRequest",
     [messageType.list_friend] = "ListFriendRequest",
     [messageType.list_chat] = "ListChatRequest",
+    [messageType.w] = "wRequest",
+    [messageType.s] = "sRequest",
+    [messageType.a] = "aRequest",
+    [messageType.d] = "dRequest",
+    [messageType.c] = "cRequest",
+    [messageType.m] = "mRequest",
+
 
     [messageType.error] = "ErrorRequest",
 }

@@ -3,8 +3,17 @@
 local skynet = require "skynet"
 local s = require "service"
 
--- 小球列表
-local balls = {} -- [playerid] = ball 
+require "AOI"
+require "visual"
+
+space = {
+    entities = {}, -- id 
+    grid = {} -- entity
+}
+walk = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+
+foods = {} -- [-id] = food 
+balls = {} -- [playerid] = ball 
 
 -- 小球类
 function ball() 
@@ -12,29 +21,31 @@ function ball()
         playerid = nil,  -- 玩家id
         node = nil,      -- 所处节点
         agent = nil,     -- 代理id
-        x = math.random( 0, 100 ), 
-        y = math.random( 0, 100 ), 
-        size = 2,        -- 尺寸
+        x = math.random( 1, 100 ), 
+        y = math.random( 1, 100 ), 
+        size = 1,        -- 尺寸
         speedx = 0,      -- 移速
         speedy = 0, 
     }
+    setmetatable(m, entity)
     return m
 end
 
 -- 辅助方法，收集所有小球，构建balllist协议
 local function balllist_msg() 
-    local msg = { "balllist" }
+    local msg = { _cmd = "balllist", data = {} } 
     for i, v in pairs(balls) do 
-        table.insert( msg, v.playerid )
-        table.insert( msg, v.x )
-        table.insert( msg, v.y )
-        table.insert( msg, v.size )
+        local player_info = {}
+        table.insert( player_info, v.playerid )
+        table.insert( player_info, v.x )
+        table.insert( player_info, v.y )
+        table.insert( player_info, v.size )
+        local str_player_info = "(" .. table.concat(player_info, ", ") .. ")" 
+        table.insert(msg.data, str_player_info)
     end 
-    return cjson.encode(msg)
+    return json_format(msg)
 end 
 
-
-local foods = {} -- [id] = food 
 local food_maxid = 0 
 local food_count = 0 
 
@@ -45,23 +56,27 @@ function food()
         x = math.random( 0, 100 ), 
         y = math.random( 0, 100 ), 
     }
+    setmetatable(m, entity)
     return m
 end 
 
 -- 辅助方法，收集所有食物，构建foodlist协议
 local function foodlist_msg()
-    local msg = { "foodlist" }
+    local msg = { _cmd = "foodlist", data = {} }
     for i, v in pairs(foods) do 
-        table.insert( msg, v.id )
-        table.insert( msg, v.x )
-        table.insert( msg, v.y )
+        local food_info = {}
+        table.insert( food_info, v.id )
+        table.insert( food_info, v.x )
+        table.insert( food_info, v.y )
+        local str_food_info = "(" .. table.concat(food_info, ", ") .. ")"
+        table.insert(msg.data, str_food_info)
     end 
-    return cjson.encode(msg)
+    return json_format(msg)
 end 
 
 -- 广播
 function broadcast(msg)
-    msg = cjson.encode(msg) -- 暂时先这样写！！！
+    msg = cjson.encode(msg)
     for i, v in pairs(balls) do 
         s.send(v.node, v.agent, "send", msg)
     end 
@@ -76,50 +91,66 @@ end
 --      6. 向玩家发送战场信息（balllist，foodlist）协议
 --]]
 s.resp.enter_scene = function(source, playerid, node, agent) 
+    playerid = tonumber(playerid)
     if balls[playerid] then 
         return false
     end 
 
+    -- 初始化
     local b = ball() 
     b.playerid = playerid 
     b.node = node 
     b.agent = agent 
+    b.id = b.playerid
 
     -- 广播
-    local entermsg = { "enter_scene", playerid, b.x, b.y, b.size } 
+    local msg = string.format("player [%d] enter_scene~", playerid)
+    local entermsg = { message = msg } 
     broadcast(entermsg)
     -- 记录
     balls[playerid] = b
-    -- 回应
-    local ret_msg = json_format({code = "enter_scene", status = "success", message = "Successfully entered"})
+    -- 插入地图
+    add_entity_grid(b)
+    -- 插入全局视野
+    add_entity_entities(b)
+    -- AOI 
+    update_entity_AOI(b)
 
+    -- 回应
+    local ret_msg = json_format({code = "enter_scene", status = "success", message = "Successfully entered!"})
     s.send(b.node, b.agent, "send", ret_msg) 
+
     -- 发战场信息
-    s.send(b.node, b.agent, "send", balllist_msg())
     s.send(b.node, b.agent, "send", foodlist_msg())
+    s.send(b.node, b.agent, "send", balllist_msg())
     return true
 end 
 
 -- leave退出协议
 s.resp.leave_scene = function(source, playerid) 
+    playerid = tonumber(playerid)
     if not balls[playerid] then 
-        return false 
+        return false
     end 
+    -- 删除全局视野
+    del_entity_entities(balls[playerid])
+
     balls[playerid] = nil 
 
-    local leavemsg = { "leave_scene", playerid } 
+    local msg = string.format("player [%d] conduct cmd: [leave_scene]~", playerid)
+    local leavemsg = { message = msg } 
     broadcast(leavemsg)
     return true
 end 
 
--- shift移动方向协议
-s.resp.shift = function(source, playerid, x, y)
+-- move移动方向协议
+s.resp.move = function(source, playerid, toward)
     local b = balls[playerid] 
     if not b then 
         return false 
     end 
-    b.speedx = x 
-    b.speedy = y 
+    b:moveto(toward)
+    return true
 end 
 
 -- 移动逻辑：主循环0.2秒调用一次，路程=速度x时间
@@ -153,8 +184,17 @@ function food_update()
     food_maxid = food_maxid + 1
     food_count = food_count + 1
     local f = food() 
-    f.id = food_maxid
+    f.id = -food_maxid
     foods[f.id] = f 
+
+    -- 插入地图
+    add_entity_grid(f)
+
+    -- 插入全局视野
+    add_entity_entities(f)
+
+    -- 触发视野 
+    update_entity_AOI(f)
 
     local msg = { "addfood", f.id, f.x, f.y } 
     broadcast(msg)
@@ -177,8 +217,8 @@ end
 
 function update(frame)
     food_update() 
-    move_update() 
-    eat_update() 
+    -- move_update() 
+    -- eat_update() 
     -- 碰撞
     -- 分裂
 end 

@@ -24,6 +24,13 @@ message Request {
         LIST_FRIEND = 17;
         LIST_CHAT = 18;
 
+        w = 19;
+        s = 20;
+        a = 21;
+        d = 22;
+        c = 23; 
+        m = 24;
+
         ERROR = 504;
     }
     CommandType type = 1;
@@ -199,4 +206,28 @@ message ListFriendRequest {
 // 查看聊天列表 
 message ListChatRequest {
     int32 list_type = 1; // 大厅聊天；好友聊天
+}
+
+message wRequest {
+    int32 step = 1;
+}
+
+message sRequest {
+    int32 step = 1;
+}
+
+message aRequest {
+    int32 step = 1;
+}
+
+message dRequest {
+    int32 step = 1;
+}
+
+message cRequest {
+    int32 range = 1;  // 0/nil: AOI; 1~: 全局
+}
+
+message mRequest {
+    int32 range = 1; // 0/nil: AOI; 1~: 全局:w
 }

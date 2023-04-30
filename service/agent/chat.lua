@@ -27,7 +27,7 @@ s.client.chat = function(msgBS)
         -- 判断好友关系
         local is_friend_msgBS = request:encode({ "is_friend", obj_id })
         if not s.client.is_friend(is_friend_msgBS) then
-            s.resp.send(nil, cjson.encode({ "No, You are not friend" }))
+            s.resp.send(nil, json.format({code = "chat", status = "failed", message = "No, You are not friend" }))
             return nil
         end
         

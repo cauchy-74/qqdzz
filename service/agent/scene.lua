@@ -42,11 +42,7 @@ end
 -- ]]
 s.client.enter_scene = function(msgBS)
     if s.sname then 
-        return cjson.encode({
-            [1] = {msg_type = "enter_scene_resp"}, 
-            [2] = {success = "false"}, 
-            [3] = {msg = "already in the scene"}, 
-        })
+        return json_format({code = "enter_scene", status = "failed", message = "Already in the scene"}) 
     end
 
     local msg = request:decode("CMD.EnterSceneRequest", msgBS)
@@ -61,75 +57,73 @@ s.client.enter_scene = function(msgBS)
     end
 
     local sname = "scene" .. sid 
-    local isok = s.call(snode, sname, "enter_scene", s.id, mynode, skynet.self())
+    local isok = s.call(snode, sname, "enter_scene", tonumber(s.id), mynode, skynet.self())
     if not isok then 
-        return cjson.encode({
-            [1] = {msg_type = "enter_scene_resp"}, 
-            [2] = {success = "false"}, 
-            [3] = {msg = "enter scene failed"}, 
-        })
+        return json_format({code = "enter_scene", status = "failed", message = "Enter scene failed!"}) 
     end 
     s.snode = snode 
     s.sname = sname 
     INFO("[agent/scene]：成功进入场景[" .. s.sname .. "]")
 
-    return cjson.encode({
-        [1] = {msg_type = "enter_scene_resp"}, 
-        [2] = {success = "true"}, 
-        [3] = {msg = "enter scene success"}, 
-    })
+    return json_format({code = "enter_scene", status = "success", message = "Enter into scene~"}) 
 end
 
-s.client.shift = function(msg)
+local move = function(toward)
     if not s.sname then 
         return nil
     end 
-    local x = msg[2] or 0 
-    local y = msg[3] or 0 
-    s.call(s.snode, s.sname, "shift", s.id, x, y)
+    s.send(s.snode, s.sname, "move", tonumber(s.id), tonumber(toward))
+end
 
-    return cjson.encode({
-        [1] = {msg_type = "shift_resp"}, 
-        [2] = {success = "true"}, 
-        [3] = {msg = "shift"}, 
-    })
+s.client.w = function(msgBS)
+    move(1) 
+end
+s.client.s = function(msgBS)
+    move(2)
+end
+s.client.a = function(msgBS)
+    move(3)
+end
+s.client.d = function(msgBS)
+    move(4)
+end
+s.client.c = function(msgBS)
+    local msg = request:decode("CMD.cRequest", msgBS)
+    if msg.range and msg.range ~= 0 then 
+        -- 1~: 全局视野 
+        return s.call(s.snode, s.sname, "get_ALL", tonumber(s.id))
+    end
+    return s.call(s.snode, s.sname, "get_AOI", tonumber(s.id))
+end
+
+s.client.m = function(msgBS)
+    local msg = request:decode("CMD.mRequest", msgBS)
+    if msg.range and msg.range ~= 0 then 
+        -- 1~: 全局可视化地图
+        return s.call(s.snode, s.sname, "get_map", tonumber(s.id))
+    end
+    return s.call(s.snode, s.sname, "get_map_AOI", tonumber(s.id))
 end
 
 s.client.leave_scene = function(msgBS) 
     if not s.sname then 
-        return cjson.encode({
-            [1] = {msg_type = "leave_scene_resp"}, 
-            [2] = {success = "false"}, 
-            [3] = {msg = "not in scene"}, 
-        })
+        return json_format({code = "leave_scene", status = "failed", message = "Not in any scene"})
     end 
     
     local msg = request:decode("CMD.LeaveSceneRequest", msgBS)
 
     if msg.sceneid ~= "nil" and ("scene" .. msg.sceneid) ~= s.sname then 
-        return cjson.encode({
-            [1] = {msg_type = "leave_scene_resp"}, 
-            [2] = {success = "false"}, 
-            [3] = {msg = "not in scene"}, 
-        })
+        return json_format({code = "leave_scene", status = "failed", message = "Not in any scene"})
     end
 
-    local isok = s.call(s.snode, s.sname, "leave_scene", s.id)
+    local isok = s.call(s.snode, s.sname, "leave_scene", tonumber(s.id))
 
     if not isok then 
-        return cjson.encode({
-            [1] = {msg_type = "leave_scene_resp"}, 
-            [2] = {success = "false"}, 
-            [3] = {msg = "leave scene failed"}, 
-        })
+        return json_format({code = "leave_scene", status = "failed", message = "leave scene failed!"})
     end
 
     s.snode = nil 
     s.sname = nil
-    return cjson.encode({
-        [1] = {msg_type = "leave_scene_resp"}, 
-        [2] = {success = "true"}, 
-        [3] = {msg = "leave scene success"}, 
-    })
+    return json_format({code = "leave_scene", status = "success", message = "leave scene~"})
 end
 
