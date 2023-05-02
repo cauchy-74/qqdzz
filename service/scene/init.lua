@@ -1,10 +1,11 @@
 #!/usr/local/bin/lua
 
 local skynet = require "skynet"
+local cluster = require "skynet.cluster"
 local s = require "service"
 
-require "AOI"
-require "visual"
+require "AOI" -- Area of Interst, + collision
+require "visual" -- 可视化地图
 
 space = {
     entities = {}, -- id 
@@ -12,7 +13,11 @@ space = {
 }
 walk = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
 
+local food_maxid = 0 
+food_count = 0 -- collision 对食物计数
 foods = {} -- [-id] = food 
+
+local ball_count = 0
 balls = {} -- [playerid] = ball 
 
 -- 小球类
@@ -21,9 +26,11 @@ function ball()
         playerid = nil,  -- 玩家id
         node = nil,      -- 所处节点
         agent = nil,     -- 代理id
-        x = math.random( 1, 100 ), 
-        y = math.random( 1, 100 ), 
+        x = math.random( 1, 20 ), 
+        y = math.random( 1, 50 ), 
         size = 1,        -- 尺寸
+        hp = 1,
+        score = 0,
         speedx = 0,      -- 移速
         speedy = 0, 
     }
@@ -46,15 +53,12 @@ local function balllist_msg()
     return json_format(msg)
 end 
 
-local food_maxid = 0 
-local food_count = 0 
-
 -- 食物类
 function food()
     local m = {
         id = nil, 
-        x = math.random( 0, 100 ), 
-        y = math.random( 0, 100 ), 
+        x = math.random( 0, 20 ), 
+        y = math.random( 0, 50 ), 
     }
     setmetatable(m, entity)
     return m
@@ -93,6 +97,7 @@ end
 s.resp.enter_scene = function(source, playerid, node, agent) 
     playerid = tonumber(playerid)
     if balls[playerid] then 
+        ERROR("balls exist the ball")
         return false
     end 
 
@@ -115,6 +120,8 @@ s.resp.enter_scene = function(source, playerid, node, agent)
     add_entity_entities(b)
     -- AOI 
     update_entity_AOI(b)
+    -- 统计玩家数
+    ball_count = ball_count + 1
 
     -- 回应
     local ret_msg = json_format({code = "enter_scene", status = "success", message = "Successfully entered!"})
@@ -134,12 +141,24 @@ s.resp.leave_scene = function(source, playerid)
     end 
     -- 删除全局视野
     del_entity_entities(balls[playerid])
-
+    -- 格子中删除实体
+    del_entity_grid(balls[playerid])
+    -- 玩家数-1
+    ball_count = ball_count - 1
+    -- 数据保存 
+    s.send(balls[playerid].node, balls[playerid].agent, "save_data", balls[playerid].score) 
+    -- 删除balls维护的ball
     balls[playerid] = nil 
 
     local msg = string.format("player [%d] conduct cmd: [leave_scene]~", playerid)
     local leavemsg = { message = msg } 
     broadcast(leavemsg)
+    
+    -- 场景销毁
+    if ball_count == 0 then 
+        cluster.reload()
+    end
+
     return true
 end 
 
@@ -168,7 +187,7 @@ end
 
 -- [[
 --      生成食物
---      1. 判断总量，限制50
+--      1. 判断总量，限制28
 --      2. 控制时间，（1,100）>=98才可以生成，概率1/50,0.2秒执行一次，所以10秒一个事务
 --      3. addfood协议，并更新foods, food_maxid, food_count
 -- ]]
@@ -219,7 +238,8 @@ function update(frame)
     food_update() 
     -- move_update() 
     -- eat_update() 
-    -- 碰撞
+    -- 碰撞检测
+    -- -- 交由移动逻辑处理，这里只做判断
     -- 分裂
 end 
 

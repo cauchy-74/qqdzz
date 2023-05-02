@@ -30,7 +30,8 @@ end
 s.client.view = function(msgBS, source)
     local user_info = s.data
 
-    return json_format({code = "view", status = "success", data = {user_id = user_info.user_id, username = user_info.username, password = user_info.password, email = user_info.email, level = user_info.level, coin = user_info.coin, experience = user_info.experience, last_login_time = user_info.last_login_time}})
+    return json_format({ code = "view", status = "success", data = {user_id = user_info.user_id, username = user_info.username, password = user_info.password, email = user_info.email, level = user_info.level, coin = user_info.coin, experience = user_info.experience, last_login_time = os.date("%Y-%m-%d %H:%M:%S", user_info.last_login_time)} })
+
 end
 
 s.client.work = function(msgBS, source)
@@ -58,7 +59,6 @@ s.client.exit = function(msgBS, source)
     skynet.send("agentmgr", "lua", "reqkick", s.id, "主动离线")
 end
 
-
 -- 客户端掉线
 s.resp.kick = function(source) 
     s.client.leave_scene(nil)  -- 向场景服务请求退出
@@ -78,6 +78,19 @@ s.resp.sure_gate = function(source, gate)
     s.gate = gate 
 end
 
+-- 游戏场景退出的数据保存
+s.resp.save_data = function(source, score)
+    s.data.experience = s.data.experience + score 
+    while s.data.experience >= s.data.level * 10 do
+        s.data.experience = s.data.experience - s.data.level * 10 
+        s.data.level = s.data.level + 1
+        s.resp.send(nil, json_format({_cmd = "upgrade", message = string.format("Congratulations on upgrading to level [%d] !", s.data.level) })) 
+    end
+    
+    s.data.coin = s.data.coin + score * 10
+    s.client.save_data() 
+end
+
 -- 订阅模式下，回调索引映射的函数
 s.resp.callback = function(source, index, channel, message)
     if not index or index == nil then 
@@ -85,7 +98,6 @@ s.resp.callback = function(source, index, channel, message)
     end
     s.callbackFunc[index](channel, message)
 end
-
 
 -- 通过时间戳获得天数
 function get_day(timestamp)

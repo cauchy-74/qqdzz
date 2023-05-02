@@ -8,6 +8,11 @@ local s = require "service"
 entity = { id = nil, AOI = {} }
 entity.__index = entity
 
+function entity:on_death()
+    s.send(self.node, self.agent, "send", json_format({ _cmd = "on_death", message = "Game Over!" }))
+    s.resp.leave_scene(nil, self.id)
+end
+
 function entity:get_sight()
     return cjson.encode(self.AOI)
 end
@@ -57,6 +62,10 @@ end
 function entity:moveto(toward)
     -- toward: 1-w; 2-s; 3-a; 4-d;
     local dx, dy = walk[toward][1], walk[toward][2]
+    if self.x + dx < 1 then return end
+    if self.x + dx > 30 then return end
+    if self.y + dy < 1 then return end
+    if self.y + dy > 50 then return end
 
     -- 保持连续性移动 (略)
     if toward <= 2 then -- w, s
@@ -70,10 +79,68 @@ function entity:moveto(toward)
             on_leave_grid(self.x + x, self.y - dy, self)
         end
     end 
-    on_leave_grid(self.x, self.y, self)
+    del_entity_grid(self)
     self.x = self.x + dx 
     self.y = self.y + dy 
-    on_enter_grid(self.x, self.y, self)
+    add_entity_grid(self)
+end
+
+local function collision(x, y) 
+    local have_ball = false
+    for i = #space.grid[x][y], 1, -1 do 
+        if space.grid[x][y][i].id > 0 then 
+            have_ball = true 
+            break
+        end 
+    end
+    -- 没球
+    if have_ball == false then return end
+
+    -- 统计球和食物
+    local ball_table = {}
+    local ball_num = 0 
+    local food_table = {}
+    local food_num = 0
+
+    for i, v in pairs(space.grid[x][y]) do 
+        if v.id < 0 then -- food 
+            food_num = food_num + 1
+            table.insert(food_table, v)
+        elseif v.id > 0 then 
+            ball_num = ball_num + 1
+            table.insert(ball_table, v)
+        end
+    end
+
+    -- 所有ball的AOI清空食物
+    for _, ball in ipairs(ball_table) do 
+        for _, food in ipairs(food_table) do 
+            ball:on_leave_sight(food.id)
+        end 
+    end
+    -- 食物清空
+    for _, food in ipairs(food_table) do 
+        del_entity_grid(food)
+        del_entity_entities(food)
+    end
+    food_count = food_count - food_num -- init.中小球数
+
+    -- 有球，先把得分给第一个球
+    local ball = space.grid[x][y][1]
+    ball.score = ball.score + food_num
+
+    -- 就一个球
+    if ball_num < 2 then return end 
+
+    ERROR("Attack each other ~~")
+    -- 两个球以上
+    -- 目前规则：有人-1HP，即- ball_num-1滴血
+    for _, v in pairs(ball_table) do 
+        v.hp = v.hp - ball_num + 1
+        if v.hp <= 0 then 
+            v:on_death()
+        end
+    end
 end
 
 -- 实体加入格子
@@ -85,12 +152,13 @@ function add_entity_grid(e)
         space.grid[e.x][e.y] = {}
     end
     table.insert(space.grid[e.x][e.y], e)
+    collision(e.x, e.y)
 end
 
 -- 从格子删除实体
 function del_entity_grid(e)
-    for i = 1, #space.grid[e.x][e.y] do
-        if space.grid[e.x][e.y] == e then 
+    for i, v in ipairs(space.grid[e.x][e.y]) do
+        if v == e then 
             table.remove(space.grid[e.x][e.y], i)
             break
         end
@@ -104,7 +172,7 @@ end
 -- 删除全局视野
 function del_entity_entities(e)
     for i = 1, #space.entities do 
-        if space.entities[i] == playerid then
+        if space.entities[i] == e.id then
             table.remove(space.entities, i)
             break 
         end

@@ -12,8 +12,9 @@ local char_map = {
 }
 
 local map_row = 20
-local map_col = 20
+local map_col = 50
 
+-- 返回当前格子对应的char的id:char_map
 local function char_type_from_grid(x, y, playerid)
     if not space.grid[x] then return 0 end
     if not space.grid[x][y] then return 0 end
@@ -35,6 +36,7 @@ local function char_type_from_grid(x, y, playerid)
     return 0
 end
 
+-- 地图刷新
 local function update_map(playerid)
     for i = 1, map_row do 
         if not map[i] then map[i] = {} end
@@ -45,23 +47,40 @@ local function update_map(playerid)
     end
 end
 
+-- 地图转string
 local function map_to_string(playerid)
     update_map(playerid)
-    local map_str = {}
+    local map_str = ""
+    for i = 1, map_col + 2 do map_str = map_str .. '-' end 
+    map_str = map_str .. '\n'
+
     for i = 1, map_row do 
-        local str = "" 
+        local str = "|" 
         for j = 1, map_col do 
             str = str .. map[i][j]
         end
-        table.insert(map_str, str)
+        str = str .. "|\n"
+        map_str = map_str .. str
     end
+
+    for i = 1, map_col + 2 do map_str = map_str .. '-' end 
+    map_str = map_str .. '\n'
+
     return map_str
 end
 
+-- get_map 回调，返回全局map
 s.resp.get_map = function(source, playerid) 
-    return json_format({ code = "get_map", map = map_to_string(playerid) }) 
+    playerid = tonumber(playerid)
+
+    -- skynet.fork ??? -- 处理字符串
+    -- 这里返回不要用json，会'\n'字符显示
+    return map_to_string(playerid)
 end
 
+-- get_map_AOI 回调，返回AOI区域
 s.resp.get_map_AOI = function(source, playerid)
-    
+    playerid = tonumber(playerid)
+
+    return map_to_string(playerid)
 end

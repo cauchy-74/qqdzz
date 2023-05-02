@@ -25,7 +25,7 @@ s.client.register = function(fd, msgBS, source)
         password = msg.password, 
         email = msg.email, 
         level = 1, 
-        experience = 1, 
+        experience = 0,
         coin = 0, 
     }
      
