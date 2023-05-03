@@ -10,7 +10,10 @@ entity.__index = entity
 
 function entity:on_death()
     s.send(self.node, self.agent, "send", json_format({ _cmd = "on_death", message = "Game Over!" }))
-    s.resp.leave_scene(nil, self.id)
+    s.send(self.node, self.agent, "leave_scene")
+
+    -- s.resp.leave_scene(nil, self.id)
+    -- 出现的问题是，不调度client的主动离场，会有属性未能维护。s.sname,s.snode,subscribe等。所以需要调代理用户的离场回调
 end
 
 function entity:get_sight()

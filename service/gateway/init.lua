@@ -10,8 +10,8 @@ local s = require "service"
 local runconfig = require "runconfig"
 local socket = require "skynet.socket"
 
-conns = {} -- [fd] = conn 
-players = {} -- [playerid] = gateplayer
+local conns = {} -- [fd] = conn 
+local players = {} -- [playerid] = gateplayer
 
 -- 连接类
 function conn() 

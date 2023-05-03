@@ -10,11 +10,13 @@ require "skynet.manager"
 -- 遍历所有节点上的所有网关
 function shutdown_gate()
     for node, _ in pairs(runconfig.cluster) do 
+        ERROR(string.format("node ===>>> %s", node))
         local nodecfg = runconfig[node]
         for i, v in pairs(nodecfg.gateway or {}) do 
             local name = "gateway" .. i
             s.call(node, name, "shutdown")
         end
+
     end
 end
 
@@ -59,7 +61,7 @@ function connect(fd, addr)
 end
 
 s.init = function() 
-    local listenfd = socket.listen("127.0.0.1", 8888)
+    local listenfd = socket.listen("0.0.0.0", 8888)
     socket.start(listenfd, connect)
 end 
 

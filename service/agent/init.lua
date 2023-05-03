@@ -2,14 +2,17 @@
 
 local skynet = require "skynet"
 local s = require "service"
+local sharetable = require "skynet.sharetable"
 
 s.client = {} 
 s.callbackFunc = {} -- [index_callbackFunc] = callback_func
+s.msgJS = {} -- [channel] = msgJS:{index,node,agent} 存储index对应回调函数设置的JSON包:look unsubscribe
 s.gate = nil -- resp.sure_gate 登录即认证网关 
 s.node = nil
+local global_table = nil
 
 require "mail"
-require "scene" -- 由于这个模块用到了s.client，所以要在s.client定义之后在导入
+require "scene" 
 require "friend"
 require "chat"
 
@@ -28,6 +31,7 @@ s.resp.client = function(source, cmd, msgBS)
 end 
 
 s.client.view = function(msgBS, source)
+    if check_in_scene() then return end
     local user_info = s.data
 
     return json_format({ code = "view", status = "success", data = {user_id = user_info.user_id, username = user_info.username, password = user_info.password, email = user_info.email, level = user_info.level, coin = user_info.coin, experience = user_info.experience, last_login_time = os.date("%Y-%m-%d %H:%M:%S", user_info.last_login_time)} })
@@ -35,6 +39,7 @@ s.client.view = function(msgBS, source)
 end
 
 s.client.work = function(msgBS, source)
+    if check_in_scene() then return end
     -- [[ work,100 ]] -- 协议名，金币数量
     INFO("[agent]：开始[ work ]")
     s.data.coin = s.data.coin + 1
@@ -43,6 +48,8 @@ end
 
 -- 保存数据，可以玩家主动保存
 s.client.save_data = function(msgBS, source) 
+    if check_in_scene() then return end
+
     local user_info = pb.encode("UserInfo", s.data)
     local sql = string.format("update UserInfo set data = %s where user_id = %d;", mysql.quote_sql_str(user_info), s.data.user_id)
     local res = skynet.call("mysql", "lua", "query", sql)
@@ -61,8 +68,11 @@ end
 
 -- 客户端掉线
 s.resp.kick = function(source) 
-    s.client.leave_scene(nil)  -- 向场景服务请求退出
-    s.client.save_data(nil, nil)
+    if check_in_scene() then -- 在场景中，由场景回调数据保存，并退出
+        s.client.leave_scene(nil)
+    else -- 手动保存
+        s.client.save_data(nil, nil)
+    end
 end 
 
 s.resp.exit = function(source)
@@ -137,22 +147,47 @@ local game_center_handle = function(channel, message)
     s.resp.send(nil, cjson.encode({message}))
 end
 
+-- 游戏场景回调索引映射函数
+local game_scene_handle = function(channel, message) 
+    s.resp.send(nil, cjson.encode({message})) 
+end
+
+-- 获取唯一index回调映射
 local function get_index()
     local res = skynet.call("msgserver", "lua", "get_index")
     return res
 end
 
--- 所有频道的订阅都可以进行添加
-local function subscribe()
-    local index = get_index()
-    skynet.send("msgserver", "lua", "subscribe", "game_center", cjson.encode({ index = index, node = s.node, agent = skynet.self() }))
-    s.callbackFunc[index] = game_center_handle
+-- 通过channel返回对应回调函数
+local function channel_to_callbackFunc(channel)
+    if channel == "game_center" then 
+        return game_center_handle
+    end
+    if string.find(channel, "scene") then -- st, ed
+        return game_scene_handle 
+    end
+end
 
-    ---
+function subscribe(channel) 
+    if not s.msgJS[channel] then 
+        local index = get_index()
+        s.callbackFunc[index] = channel_to_callbackFunc(channel)
+        s.msgJS[channel] = cjson.encode({ index = index, node = s.node, agent = skynet.self() })
+    end
+    ERROR(string.format("subcribe channel = %s", channel))
+    skynet.send("msgserver", "lua", "subscribe", channel, s.msgJS[channel])
+end
+
+function unsubscribe(channel) 
+    if not s.msgJS[channel] then return end
+    ERROR(string.format("unsubcribe channel = %s", channel))
+    skynet.send("msgserver", "lua", "unsubscribe", channel, s.msgJS[channel])
 end
 
 s.init = function() 
     s.node = skynet.getenv("node")
+    global_table = global_table or sharetable.query("global_table")
+    s.status = global_table.STATUS.CENTER -- 不用send，agentmgr已经同步
 
     local sql = string.format("select * from UserInfo where user_id = %d;", s.id)
     local res = skynet.call("mysql", "lua", "query", sql)
@@ -196,7 +231,7 @@ s.init = function()
     -- ps: skynet.send中pack参数不能serialize type function 
     -- 序列化会转二进制，丢失upvalue
     --  1. string.dump(func) -> load(func)()
-    subscribe()
+    subscribe("game_center")
 end 
 
 s.start(...)

@@ -56,7 +56,10 @@ skynet.start(function()
         skynet.name("scene" .. sid, srv)
     end
 
-    skynet.newservice("admin", "admin", 0)
+    for _, sid in pairs(runconfig.admin[mynode] or {}) do 
+        local srv = skynet.newservice("admin", "admin", sid)
+        skynet.name("admin", srv)
+    end
 
 
     skynet.exit()

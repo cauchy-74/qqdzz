@@ -39,7 +39,7 @@ s.resp.unsubscribe = function(source, channel, msgJS)
             channels[channel] = nil 
         else 
             for i, v in ipairs(channels[channel]) do 
-                if v == index then 
+                if v == msgJS then 
                     table.remove(channels[channel], i)
                     break
                 end
@@ -72,7 +72,7 @@ local function update(dt)
     -- INFO("[msgserver]：update ~~~~ ")
     -- local now = os.date("%Y-%m-%d %H:%M:%S", os.time())
     local now = os.time()
-    local sql = string.format("select * from Message where `timestamp` > %d and `timestamp` <= %d;", update_last_time - chat_loop_time_s, now - chat_loop_time_s) 
+    local sql = string.format("select * from Message where `timestamp` > %d and `timestamp` <= %d;", update_last_time - chat_loop_time_s, now - chat_loop_time_s) -- 消息延迟
 
     update_last_time = now -- 必须立即更新
     local result = skynet.call("mysql", "lua", "query", sql)

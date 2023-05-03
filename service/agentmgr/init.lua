@@ -2,17 +2,35 @@
 
 local skynet = require "skynet"
 local s = require "service"
+local sharetable = require "skynet.sharetable"
 
--- [[
---      保存各玩家的节点信息和状态
--- ]]
+-- [[ 保存各玩家的节点信息和状态 ]]
 
--- 登录中，游戏中，登出中
-STATUS = {
-    LOGIN = 2, 
-    GAME = 3, 
-    LOGOUT = 4, 
+--[[ -- 也不成功
+sharetable.loadstring("global_table", [[
+local global_table = {
+    STATUS = {
+        LOGIN = 1, 
+        CENTER = 2, 
+        GAME = 3, 
+        LOGOUT = 4,
+    }
 }
+]]--)
+
+local global_table = {
+    STATUS = {
+        LOGIN = 1, 
+        CENTER = 2, 
+        GAME = 3, 
+        LOGOUT = 4,
+    }
+}
+
+s.init = function() 
+    -- sharetable.loadfile("sharetable.lua") -- 不会阿！
+    sharetable.loadtable("global_table", global_table)
+end
 
 -- 玩家列表
 local players = {} -- [playerid] = mgrplayer
@@ -37,16 +55,17 @@ s.resp.reqkick = function(source, playerid, reason)
         return false 
     end 
 
-    if mplayer.status ~= STATUS.GAME then 
-        return false 
-    end 
+    if not (mplayer.status == global_table.STATUS.GAME or mplayer.status == global_table.STATUS.CENTER) then 
+        return false
+    end
 
     local pnode = mplayer.node 
     local pagent = mplayer.agent 
     local pgate = mplayer.gate 
-    mplayer.status = STATUS.LOGOUT 
+    mplayer.status = global_table.STATUS.LOGOUT 
+    s.send(pnode, pagent, "modify_status", mplayer.status)
 
-    s.call(pnode, pagent, "kick") 
+    s.call(pnode, pagent, "kick") -- call 保证所有动作完全执行结束, save_data, leave_scene... 
     s.send(pnode, pagent, "exit") 
     s.send(pnode, pgate, "kick", playerid) 
     players[playerid] = nil 
@@ -55,14 +74,16 @@ s.resp.reqkick = function(source, playerid, reason)
 end 
 
 s.resp.reqlogin = function(source, playerid, node, gate)
+    playerid = tonumber(playerid) 
+
     local mplayer = players[playerid]
     -- 登录过程禁止顶替
-    if mplayer and mplayer.status == STATUS.LOGOUT then 
+    if mplayer and mplayer.status == global_table.STATUS.LOGOUT then 
         ERROR("[agentmgr]：方法[resp.reqlogin]调用，用户id = " .. playerid .. "状态status = LOGOUT")
         return false 
     end 
 
-    if mplayer and mplayer.status == STATUS.LOGIN then 
+    if mplayer and mplayer.status == global_table.STATUS.LOGIN then 
         ERROR("[agentmgr]：方法[resp.reqlogin]调用，用户id = " .. playerid .. "状态status = LOGIN")
         return false 
     end 
@@ -72,7 +93,9 @@ s.resp.reqlogin = function(source, playerid, node, gate)
         local pnode = mplayer.node 
         local pagent = mplayer.agent 
         local pgate = mplayer.gate 
-        mplayer.status = STATUS.LOGOUT 
+        mplayer.status = global_table.STATUS.LOGOUT 
+        s.send(pnode, pagent, "modify_status", mplayer.status)
+
         s.call(pnode, pagent, "kick") 
         s.send(pnode, pagent, "exit")
         s.send(pnode, pgate, "send", playerid, json_format({code = "kick", status = "true", message = "Be replaced~~~"}))  -- statuc->true
@@ -85,13 +108,14 @@ s.resp.reqlogin = function(source, playerid, node, gate)
     player.node = node 
     player.gate = gate 
     player.agent = nil 
-    player.status = STATUS.LOGIN 
+    player.status = global_table.STATUS.LOGIN 
     players[playerid] = player 
 
     -- send只是发，call会等待回应 -> nodemgr: return srv
     local agent = s.call(node, "nodemgr", "newservice", "agent", "agent", playerid) 
     player.agent = agent 
-    player.status = STATUS.GAME 
+    player.status = global_table.STATUS.CENTER 
+    -- 无需同步，agent.init中有直接的设置
 
     return true, agent
 end 
@@ -129,12 +153,18 @@ s.resp.get_online_count = function(source)
     return count
 end
 
--- 获取玩家在线状态
+-- 修改玩家状态
+s.resp.modify_status = function(source, id, status)
+    id = tonumber(id)
+    players[id].status = status 
+    ERROR(string.format("[agentmgr]：player [%d] status modify to %s", id, status))
+end
+
+-- 获取玩家状态
 s.resp.get_online_id = function(source, id)
     local id = tonumber(id)
     if players[id] == nil then return false end 
-    if players[id].status ~= STATUS.GAME then return false end
-    return true
+    return players[id].status
 end
 
 -- 获取玩家所在节点

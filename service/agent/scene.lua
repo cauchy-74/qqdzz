@@ -4,6 +4,7 @@ local skynet = require "skynet"
 local s = require "service"
 local runconfig = require "runconfig"
 local mynode = skynet.getenv("node")
+local sharetable = require "skynet.sharetable"
 
 -- [[
 --          scene模块
@@ -14,6 +15,8 @@ local mynode = skynet.getenv("node")
 
 s.snode = nil -- scene_node 
 s.sname = nil -- scene_id 
+
+local global_table = nil
 
 -- 随机选择节点，agent应尽可能进入同节点。所以模拟数倍
 local function random_scene()
@@ -35,13 +38,19 @@ local function random_scene()
     return scenenode, sceneid
 end
 
+-- 检查是否当前是处于游戏状态
+function check_in_scene()
+    if not s.sname or s.status ~= global_table.STATUS.GAME then return false end
+    return true
+end
+
 -- [[
 --      1. s.snode: 对应场景节点； s.sname: 对应场景名字
 --      2. random_scene(): 随机一个场景服务
 --      3. 向scene发送enter
 -- ]]
 s.client.enter_scene = function(msgBS)
-    if s.sname then 
+    if check_in_scene() then 
         return json_format({code = "enter_scene", status = "failed", message = "Already in the scene"}) 
     end
 
@@ -61,17 +70,25 @@ s.client.enter_scene = function(msgBS)
     if not isok then 
         return json_format({code = "enter_scene", status = "failed", message = "Enter scene failed!"}) 
     end 
+
     s.snode = snode 
     s.sname = sname 
+    global_table = global_table or sharetable.query("global_table") -- 由于我们这里全局表只读，所以询问一次就保存起来
+    s.status = global_table.STATUS.GAME
+    -- 状态同步给agentmgr
+    -- [[ 参考admin中的s.call(node, "agentmgr", ...) ]]
+    skynet.send("agentmgr", "lua", "modify_status", s.id, s.status)
+    -- 订阅场景channel
+    unsubscribe("game_center")
+    subscribe(s.sname)
+
     INFO("[agent/scene]：成功进入场景[" .. s.sname .. "]")
 
     return json_format({code = "enter_scene", status = "success", message = "Enter into scene~"}) 
 end
 
 local move = function(toward)
-    if not s.sname then 
-        return nil
-    end 
+    if not check_in_scene() then return end 
     s.send(s.snode, s.sname, "move", tonumber(s.id), tonumber(toward))
 end
 
@@ -88,6 +105,7 @@ s.client.d = function(msgBS)
     move(4)
 end
 s.client.c = function(msgBS)
+    if not check_in_scene() then return end
     local msg = request:decode("CMD.cRequest", msgBS)
     if msg.range and msg.range ~= 0 then 
         -- 1~: 全局视野 
@@ -97,6 +115,7 @@ s.client.c = function(msgBS)
 end
 
 s.client.m = function(msgBS)
+    if not check_in_scene() then return end
     local msg = request:decode("CMD.mRequest", msgBS)
     if msg.range and msg.range ~= 0 then 
         -- 1~: 全局可视化地图
@@ -106,14 +125,14 @@ s.client.m = function(msgBS)
 end
 
 s.client.leave_scene = function(msgBS) 
-    if not s.sname then 
+    if not check_in_scene() then 
         return json_format({code = "leave_scene", status = "failed", message = "Not in any scene"})
     end 
     
     local msg = request:decode("CMD.LeaveSceneRequest", msgBS)
 
-    if msg.sceneid ~= "nil" and ("scene" .. msg.sceneid) ~= s.sname then 
-        return json_format({code = "leave_scene", status = "failed", message = "Not in any scene"})
+    if msgBS ~= nil and msg.sceneid ~= "nil" and ("scene" .. msg.sceneid) ~= s.sname then 
+        return json_format({code = "leave_scene", status = "failed", message = "Not in the scene"})
     end
 
     local isok = s.call(s.snode, s.sname, "leave_scene", tonumber(s.id))
@@ -122,8 +141,27 @@ s.client.leave_scene = function(msgBS)
         return json_format({code = "leave_scene", status = "failed", message = "leave scene failed!"})
     end
 
+    unsubscribe(s.sname)
+    subscribe("game_center")
+
     s.snode = nil 
     s.sname = nil
+    -- 存在强制下机，agentmgr中状态已经改为LOGOUT
+    if s.status ~= global_table.STATUS.LOGOUT then 
+        s.status = global_table.STATUS.CENTER
+        skynet.send("agentmgr", "lua", "modify_status", s.id, s.status)
+    end
+
     return json_format({code = "leave_scene", status = "success", message = "leave scene~"})
 end
 
+-- 用于用户在场景中 on_death, 需要回调用户的leave_scene
+s.resp.leave_scene = function(source)
+    s.client.leave_scene(nil) 
+end
+
+-- 暂时先放这：scene.lua 
+-- kick后，agentmgr中状态修改LOGOUT,同步给当前的用户
+s.resp.modify_status = function(source, status)
+    s.status = status
+end
