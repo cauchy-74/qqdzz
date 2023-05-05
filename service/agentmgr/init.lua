@@ -115,7 +115,7 @@ s.resp.reqlogin = function(source, playerid, node, gate)
     local agent = s.call(node, "nodemgr", "newservice", "agent", "agent", playerid) 
     player.agent = agent 
     player.status = global_table.STATUS.CENTER 
-    -- 无需同步，agent.init中有直接的设置
+    -- 无需同步，
 
     return true, agent
 end 
