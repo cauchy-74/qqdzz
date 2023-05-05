@@ -216,7 +216,7 @@ s.init = function()
     end
 
     -- 玩家邮件初始化cache: s.mail_message, s.mail_count
-    local sql = string.format("select * from UserMail where user_id = %d;", s.id)
+    local sql = string.format("select * from UserMail where `user_id` = %d;", s.id)
     local result = skynet.call("mysql", "lua", "query", sql)
 
     for i, v in pairs(result) do 

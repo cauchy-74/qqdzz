@@ -219,7 +219,7 @@ lua模块
 ## 用户邮件表（UserMail）
 |    Field    |     Type     | Null | Key  | Default | Extra |
 | :---------: | :----------: | :--: | :--: | :-----: | :---: |
-|   user_id   |     int      |  NO  | PRI  |  NULL   |       |
+|   user_id   |     int      |  NO  |      |  NULL   |       |
 |   mail_id   |     int      |  NO  |      |  NULL   |       |
 |    from     |     int      |  NO  |      |  NULL   |       |
 |     to      |     int      |  NO  |      |  NULL   |       |
@@ -229,6 +229,7 @@ lua模块
 |   is_read   |  tinyint(1)  | YES  |      |  NULL   |       |
 | is_rewarded |  tinyint(1)  | YES  |      |  NULL   |       |
 |    time     |   datetime   |  NO  |      |  NULL   |       |
+|     id      |     int      |  NO  | PRI  |  NULL   |  auto_increment |
 
 ## 好友聊天表（FriendChat）
 |   Field   |   Type   | Null | Key  | Default |     Extra      |
